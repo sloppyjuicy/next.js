@@ -1,13 +1,10 @@
 /* eslint-env jest */
 
 import { join } from 'path'
-import { normalizePagePath } from 'next/dist/server/normalize-page-path'
 import { SERVER_DIRECTORY, CLIENT_STATIC_FILES_PATH } from 'next/constants'
-import {
-  requirePage,
-  getPagePath,
-  pageNotFoundError,
-} from 'next/dist/server/require'
+import { normalizePagePath } from 'next/dist/shared/lib/page-path/normalize-page-path'
+import { requirePage, getPagePath } from 'next/dist/server/require'
+import { PageNotFoundError } from 'next/dist/shared/lib/utils'
 
 const sep = '/'
 const distDir = join(__dirname, '_resolvedata')
@@ -23,9 +20,8 @@ describe('pageNotFoundError', () => {
   it('Should throw error with ENOENT code', () => {
     expect.assertions(1)
     try {
-      throw pageNotFoundError('test')
+      throw new PageNotFoundError('test')
     } catch (err) {
-      // eslint-disable-next-line jest/no-try-expect
       expect(err.code).toBe('ENOENT')
     }
   })
@@ -55,24 +51,26 @@ describe('normalizePagePath', () => {
 
 describe('getPagePath', () => {
   it('Should not append /index to the / page', () => {
-    expect(() => getPagePath('/', distDir, false)).toThrow(
+    expect(() => getPagePath('/', distDir, undefined, false)).toThrow(
       'Cannot find module for page: /'
     )
   })
 
   it('Should prepend / when a page does not have it', () => {
-    const pagePath = getPagePath('_error', distDir, false)
+    const pagePath = getPagePath('_error', distDir, undefined, false)
     expect(pagePath).toBe(join(pathToBundles, `${sep}_error.js`))
   })
 
   it('Should throw with paths containing ../', () => {
-    expect(() => getPagePath('/../../package.json', distDir, false)).toThrow()
+    expect(() =>
+      getPagePath('/../../package.json', distDir, undefined, false)
+    ).toThrow()
   })
 })
 
 describe('requirePage', () => {
   it('Should not find page /index when using /', async () => {
-    await expect(() => requirePage('/', distDir, false)).toThrow(
+    await expect(requirePage('/', distDir, false)).rejects.toThrow(
       'Cannot find module for page: /'
     )
   })
@@ -92,7 +90,6 @@ describe('requirePage', () => {
     try {
       await requirePage('/../../test', distDir, false)
     } catch (err) {
-      // eslint-disable-next-line jest/no-try-expect
       expect(err.code).toBe('ENOENT')
     }
   })
@@ -102,7 +99,6 @@ describe('requirePage', () => {
     try {
       await requirePage('/non-existent', distDir, false)
     } catch (err) {
-      // eslint-disable-next-line jest/no-try-expect
       expect(err.code).toBe('ENOENT')
     }
   })
@@ -112,7 +108,6 @@ describe('requirePage', () => {
     try {
       await requirePage('/non-existent-child', distDir, false)
     } catch (err) {
-      // eslint-disable-next-line jest/no-try-expect
       expect(err.code).toBe('MODULE_NOT_FOUND')
     }
   })

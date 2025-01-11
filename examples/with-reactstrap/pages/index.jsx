@@ -1,4 +1,4 @@
-import Head from 'next/head'
+import Head from "next/head";
 import {
   Container,
   Row,
@@ -8,7 +8,7 @@ import {
   CardText,
   CardTitle,
   CardBody,
-} from 'reactstrap'
+} from "reactstrap";
 
 export default function Home() {
   return (
@@ -63,7 +63,7 @@ export default function Home() {
                   </CardText>
                   <Button
                     color="primary"
-                    href="https://github.com/vercel/next.js/tree/master/examples"
+                    href="https://github.com/vercel/next.js/tree/canary/examples"
                   >
                     More &rarr;
                   </Button>
@@ -97,10 +97,10 @@ export default function Home() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          Powered by{' '}
+          Powered by{" "}
           <img src="/vercel.svg" alt="Vercel Logo" className="sml-logo" />
         </a>
       </footer>
     </Container>
-  )
+  );
 }

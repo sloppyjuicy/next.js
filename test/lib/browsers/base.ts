@@ -1,84 +1,126 @@
-// This is the base Browser interface all browser
-// classes should build off of, it is the bare
-// methods we aim to support across tests
-export class BrowserInterface {
-  private promise: any
-  private then: any
-  private catch: any
+export type Event = 'request' | 'response'
 
-  protected chain(nextCall: any): BrowserInterface {
-    if (!this.promise) {
-      this.promise = Promise.resolve(this)
+/**
+ * This is the base Browser interface all browser
+ * classes should build on, it is the bare
+ * methods we aim to support across tests
+ */
+export abstract class BrowserInterface<TCurrent = any> {
+  private promise?: Promise<TCurrent>;
+
+  // necessary for the type of the function below
+  readonly [Symbol.toStringTag]: string = 'BrowserInterface'
+
+  protected chain<TNext>(
+    nextCall: (current: TCurrent) => TNext | Promise<TNext>
+  ): BrowserInterface<TNext> & Promise<TNext> {
+    const syncError = new Error('next-browser-base-chain-error')
+    const promise = Promise.resolve(this.promise)
+      .then(nextCall)
+      .catch((reason) => {
+        if (
+          reason !== null &&
+          typeof reason === 'object' &&
+          'stack' in reason
+        ) {
+          const syncCallStack = syncError.stack.split(syncError.message)[1]
+          reason.stack += `\n${syncCallStack}`
+        }
+        throw reason
+      })
+
+    function get(target: BrowserInterface<TNext>, p: string | symbol): any {
+      switch (p) {
+        case 'promise':
+          return promise
+        case 'then':
+          return promise.then.bind(promise)
+        case 'catch':
+          return promise.catch.bind(promise)
+        case 'finally':
+          return promise.finally.bind(promise)
+        default:
+          return target[p]
+      }
     }
-    this.promise = this.promise.then(nextCall)
-    this.then = (...args) => this.promise.then(...args)
-    this.catch = (...args) => this.promise.catch(...args)
-    return this
+
+    return new Proxy<any>(this, {
+      get,
+    })
   }
 
-  async setup(browserName: string): Promise<void> {}
-  async close(): Promise<void> {}
-  async quit(): Promise<void> {}
+  abstract setup(
+    browserName: string,
+    locale: string,
+    javaScriptEnabled: boolean,
+    ignoreHttpsErrors: boolean,
+    headless: boolean
+  ): Promise<void>
+  abstract close(): Promise<void>
 
-  elementsByCss(selector: string): BrowserInterface[] {
-    return [this]
-  }
-  elementByCss(selector: string): BrowserInterface {
-    return this
-  }
-  elementById(selector: string): BrowserInterface {
-    return this
-  }
-  click(): BrowserInterface {
-    return this
-  }
-  type(text: string): BrowserInterface {
-    return this
-  }
-  waitForElementByCss(selector: string, timeout?: number): BrowserInterface {
-    return this
-  }
-  waitForCondition(snippet: string, timeout?: number): BrowserInterface {
-    return this
-  }
-  back(): BrowserInterface {
-    return this
-  }
-  forward(): BrowserInterface {
-    return this
-  }
-  refresh(): BrowserInterface {
-    return this
-  }
-  setDimensions(opts: { height: number; width: number }): BrowserInterface {
-    return this
-  }
-  addCookie(opts: { name: string; value: string }): BrowserInterface {
-    return this
-  }
-  deleteCookies(): BrowserInterface {
-    return this
-  }
-  async loadPage(url: string): Promise<any> {}
-  async get(url: string): Promise<void> {}
-
-  async getValue(): Promise<any> {}
-  async getAttribute(name: string): Promise<any> {}
-  async eval(snippet: string | Function): Promise<any> {}
-  async evalAsync(snippet: string | Function): Promise<any> {}
-  async text(): Promise<string> {
-    return ''
-  }
-  async getComputedCss(prop: string): Promise<string> {
-    return ''
-  }
-  async hasElementByCssSelector(selector: string): Promise<boolean> {
-    return false
-  }
-  async log(): Promise<any[]> {
-    return []
-  }
-  async url(): Promise<string> {
-    return ''
-  }
+  abstract elementsByCss(
+    selector: string
+  ): BrowserInterface<any[]> & Promise<any[]>
+  abstract elementByCss(selector: string): BrowserInterface<any> & Promise<any>
+  abstract elementById(selector: string): BrowserInterface<any> & Promise<any>
+  abstract touchStart(): BrowserInterface<any> & Promise<any>
+  abstract click(): BrowserInterface<any> & Promise<any>
+  abstract keydown(key: string): BrowserInterface<any> & Promise<any>
+  abstract keyup(key: string): BrowserInterface<any> & Promise<any>
+  abstract type(text: string): BrowserInterface<any> & Promise<any>
+  abstract moveTo(): BrowserInterface<any> & Promise<any>
+  abstract waitForElementByCss(
+    selector: string,
+    timeout?: number
+  ): BrowserInterface<any> & Promise<any>
+  abstract waitForCondition(
+    snippet: string,
+    timeout?: number
+  ): BrowserInterface<any> & Promise<any>
+  /**
+   * Use browsers `go back` functionality.
+   */
+  abstract back(options?: any): BrowserInterface<any> & Promise<any>
+  /**
+   * Use browsers `go forward` functionality. Inverse of back.
+   */
+  abstract forward(options?: any): BrowserInterface<any> & Promise<any>
+  abstract refresh(): BrowserInterface<any> & Promise<any>
+  abstract setDimensions(opts: {
+    height: number
+    width: number
+  }): BrowserInterface<any> & Promise<any>
+  abstract addCookie(opts: {
+    name: string
+    value: string
+  }): BrowserInterface<any> & Promise<any>
+  abstract deleteCookies(): BrowserInterface<void> & Promise<void>
+  abstract on(event: Event, cb: (...args: any[]) => void): void
+  abstract off(event: Event, cb: (...args: any[]) => void): void
+  abstract loadPage(
+    url: string,
+    {
+      disableCache,
+      cpuThrottleRate,
+      beforePageLoad,
+      pushErrorAsConsoleLog,
+    }?: {
+      disableCache?: boolean
+      cpuThrottleRate?: number
+      beforePageLoad?: Function
+      pushErrorAsConsoleLog?: boolean
+    }
+  ): Promise<void>
+  abstract get(url: string): Promise<void>
+  abstract getValue(): Promise<string>
+  abstract getAttribute(name: string): Promise<string>
+  abstract eval(snippet: string | Function, ...args: any[]): Promise<any>
+  abstract evalAsync(snippet: string | Function, ...args: any[]): Promise<any>
+  abstract text(): Promise<string>
+  abstract getComputedCss(prop: string): Promise<string>
+  abstract hasElementByCssSelector(selector: string): Promise<boolean>
+  abstract log(): Promise<{ source: string; message: string }[]>
+  abstract websocketFrames(): Promise<any[]>
+  abstract url(): Promise<string>
+  abstract waitForIdleNetwork(): Promise<void>
 }
