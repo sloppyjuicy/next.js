@@ -1,20 +1,28 @@
 {
   "private": true,
   "scripts": {
-    "dev": "next",
-    "build": "next build",
-    "start": "next start"
+    "dev": "graphql-codegen --config codegen.ts && node ./add-ts-nocheck.js && next dev",
+    "build": "graphql-codegen --config codegen.ts && node ./add-ts-nocheck.js && next build",
+    "start": "next start",
+    "lint": "next lint",
+    "codegen": "graphql-codegen --config codegen.ts && node ./add-ts-nocheck.js"
   },
   "dependencies": {
-    "classnames": "2.3.1",
-    "date-fns": "2.22.1",
+    "graphql": "^16.9.0",
+    "graphql-tag": "^2.12.6",
     "next": "latest",
-    "react": "^17.0.2",
-    "react-dom": "^17.0.2"
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
   },
   "devDependencies": {
-    "autoprefixer": "10.2.6",
-    "postcss": "8.3.5",
-    "tailwindcss": "^2.2.4"
+    "@graphql-codegen/cli": "5.0.0",
+    "@graphql-codegen/client-preset": "4.3.3",
+    "@graphql-codegen/schema-ast": "^4.1.0",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "eslint": "^9",
+    "eslint-config-next": "latest",
+    "typescript": "^5"
   }
 }
