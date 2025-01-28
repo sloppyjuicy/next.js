@@ -13,11 +13,9 @@ import {
 } from 'next-test-utils'
 
 const appDir = join(__dirname, '../')
-const nextConfig = join(appDir, 'next.config.js')
 const gip404Err =
   /`pages\/404` can not have getInitialProps\/getServerSideProps/
 
-let nextConfigContent
 let stdout
 let stderr
 let buildId
@@ -69,6 +67,14 @@ const runTests = (isDev) => {
         join(appDir, '.next/prerender-manifest.json')
       )
       expect(data.routes['/404']).toEqual({
+        allowHeader: [
+          'host',
+          'x-matched-path',
+          'x-prerender-revalidate',
+          'x-prerender-revalidate-if-generated',
+          'x-next-revalidated-tags',
+          'x-next-revalidate-tag-token',
+        ],
         initialRevalidateSeconds: false,
         srcRoute: null,
         dataRoute: `/_next/data/${buildId}/404.json`,
@@ -78,102 +84,62 @@ const runTests = (isDev) => {
 }
 
 describe('404 Page Support SSG', () => {
-  describe('server mode', () => {
-    afterAll(() => killApp(app))
+  ;(process.env.TURBOPACK_DEV ? describe.skip : describe)(
+    'production mode',
+    () => {
+      afterAll(() => killApp(app))
 
-    it('should build successfully', async () => {
-      nextConfigContent = await fs.readFile(nextConfig, 'utf8')
-      const {
-        code,
-        stderr: buildStderr,
-        stdout: buildStdout,
-      } = await nextBuild(appDir, [], {
-        stderr: true,
-        stdout: true,
+      it('should build successfully', async () => {
+        const {
+          code,
+          stderr: buildStderr,
+          stdout: buildStdout,
+        } = await nextBuild(appDir, [], {
+          stderr: true,
+          stdout: true,
+        })
+
+        expect(code).toBe(0)
+        expect(buildStderr).not.toMatch(gip404Err)
+        expect(buildStdout).not.toMatch(gip404Err)
+
+        appPort = await findPort()
+        stderr = ''
+        stdout = ''
+
+        app = await nextStart(appDir, appPort, {
+          onStdout(msg) {
+            stdout += msg
+          },
+          onStderr(msg) {
+            stderr += msg
+          },
+        })
+        buildId = await fs.readFile(join(appDir, '.next/BUILD_ID'), 'utf8')
       })
 
-      expect(code).toBe(0)
-      expect(buildStderr).not.toMatch(gip404Err)
-      expect(buildStdout).not.toMatch(gip404Err)
-
-      appPort = await findPort()
-      stderr = ''
-      stdout = ''
-
-      app = await nextStart(appDir, appPort, {
-        onStdout(msg) {
-          stdout += msg
-        },
-        onStderr(msg) {
-          stderr += msg
-        },
+      runTests()
+    }
+  )
+  ;(process.env.TURBOPACK_BUILD ? describe.skip : describe)(
+    'development mode',
+    () => {
+      beforeAll(async () => {
+        appPort = await findPort()
+        stderr = ''
+        stdout = ''
+        app = await launchApp(appDir, appPort, {
+          onStdout(msg) {
+            stdout += msg
+          },
+          onStderr(msg) {
+            stderr += msg
+          },
+        })
       })
-      buildId = await fs.readFile(join(appDir, '.next/BUILD_ID'), 'utf8')
-    })
+      afterAll(() => killApp(app))
 
-    runTests()
-  })
-
-  describe('serverless mode', () => {
-    afterAll(async () => {
-      await fs.writeFile(nextConfig, nextConfigContent)
-      await killApp(app)
-    })
-
-    it('should build successfully', async () => {
-      nextConfigContent = await fs.readFile(nextConfig, 'utf8')
-      await fs.writeFile(
-        nextConfig,
-        `
-        module.exports = { target: 'experimental-serverless-trace' }
-      `
-      )
-      const {
-        code,
-        stderr: buildStderr,
-        stdout: buildStdout,
-      } = await nextBuild(appDir, [], {
-        stderr: true,
-        stdout: true,
-      })
-
-      expect(code).toBe(0)
-      expect(buildStderr).not.toMatch(gip404Err)
-      expect(buildStdout).not.toMatch(gip404Err)
-
-      appPort = await findPort()
-      stderr = ''
-      stdout = ''
-      app = await nextStart(appDir, appPort, {
-        onStdout(msg) {
-          stdout += msg
-        },
-        onStderr(msg) {
-          stderr += msg
-        },
-      })
-      buildId = await fs.readFile(join(appDir, '.next/BUILD_ID'), 'utf8')
-    })
-
-    runTests()
-  })
-
-  describe('dev mode', () => {
-    beforeAll(async () => {
-      appPort = await findPort()
-      stderr = ''
-      stdout = ''
-      app = await launchApp(appDir, appPort, {
-        onStdout(msg) {
-          stdout += msg
-        },
-        onStderr(msg) {
-          stderr += msg
-        },
-      })
-    })
-    afterAll(() => killApp(app))
-
-    runTests(true)
-  })
+      runTests(true)
+    }
+  )
 })

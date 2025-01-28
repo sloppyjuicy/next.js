@@ -1,5 +1,5 @@
 const path = require('path')
-const fs = require('fs-extra')
+const fs = require('fs/promises')
 const getPort = require('get-port')
 const fetch = require('node-fetch')
 const glob = require('../util/glob')
@@ -9,6 +9,10 @@ const { spawn } = require('../util/exec')
 const { parse: urlParse } = require('url')
 const benchmarkUrl = require('./benchmark-url')
 const { statsAppDir, diffingDir, benchTitle } = require('../constants')
+
+async function defaultGetRequiredFiles(nextAppDir, fileName) {
+  return [fileName]
+}
 
 module.exports = async function collectStats(
   runConfig = {},
@@ -35,6 +39,7 @@ module.exports = async function collectStats(
     (hasPagesToFetch || hasPagesToBench)
   ) {
     const port = await getPort()
+    const startTime = Date.now()
     const child = spawn(statsConfig.appStartCommand, {
       cwd: curDir,
       env: {
@@ -44,14 +49,36 @@ module.exports = async function collectStats(
     })
     let exitCode = null
     let logStderr = true
-    child.stdout.on('data', (data) => process.stdout.write(data))
+
+    let serverReadyResolve
+    let serverReadyResolved = false
+    const serverReadyPromise = new Promise((resolve) => {
+      serverReadyResolve = resolve
+    })
+
+    child.stdout.on('data', (data) => {
+      if (data.toString().includes('- Local:') && !serverReadyResolved) {
+        serverReadyResolved = true
+        serverReadyResolve()
+      }
+      process.stdout.write(data)
+    })
     child.stderr.on('data', (data) => logStderr && process.stderr.write(data))
 
     child.on('exit', (code) => {
+      if (!serverReadyResolved) {
+        serverReadyResolve()
+        serverReadyResolved = true
+      }
       exitCode = code
     })
-    // give app a second to start up
-    await new Promise((resolve) => setTimeout(() => resolve(), 1500))
+
+    await serverReadyPromise
+    if (!orderedStats['General']) {
+      orderedStats['General'] = {}
+    }
+    orderedStats['General']['nextStartReadyDuration (ms)'] =
+      Date.now() - startTime
 
     if (exitCode !== null) {
       throw new Error(
@@ -61,7 +88,7 @@ module.exports = async function collectStats(
 
     if (hasPagesToFetch) {
       const fetchedPagesDir = path.join(curDir, 'fetched-pages')
-      await fs.mkdirp(fetchedPagesDir)
+      await fs.mkdir(fetchedPagesDir, { recursive: true })
 
       for (let url of runConfig.pagesToFetch) {
         url = url.replace('$PORT', port)
@@ -74,8 +101,7 @@ module.exports = async function collectStats(
           const responseText = (await res.text()).trim()
 
           let fileName = pathname === '/' ? '/index' : pathname
-          if (fileName.endsWith('/'))
-            fileName = fileName.substr(0, fileName.length - 1)
+          if (fileName.endsWith('/')) fileName = fileName.slice(0, -1)
           logger(
             `Writing file to ${path.join(fetchedPagesDir, `${fileName}.html`)}`
           )
@@ -114,7 +140,11 @@ module.exports = async function collectStats(
   }
 
   for (const fileGroup of runConfig.filesToTrack) {
-    const { name, globs } = fileGroup
+    const {
+      getRequiredFiles = defaultGetRequiredFiles,
+      name,
+      globs,
+    } = fileGroup
     const groupStats = {}
     const curFiles = new Set()
 
@@ -125,11 +155,17 @@ module.exports = async function collectStats(
 
     for (const file of curFiles) {
       const fileKey = path.basename(file)
-      const absPath = path.join(curDir, file)
       try {
-        const fileInfo = await fs.stat(absPath)
-        groupStats[fileKey] = fileInfo.size
-        groupStats[`${fileKey} gzip`] = await gzipSize.file(absPath)
+        let parsedSizeSum = 0
+        let gzipSizeSum = 0
+        for (const requiredFile of await getRequiredFiles(curDir, file)) {
+          const absPath = path.join(curDir, requiredFile)
+          const fileInfo = await fs.stat(absPath)
+          parsedSizeSum += fileInfo.size
+          gzipSizeSum += await gzipSize.file(absPath)
+        }
+        groupStats[fileKey] = parsedSizeSum
+        groupStats[`${fileKey} gzip`] = gzipSizeSum
       } catch (err) {
         logger.error('Failed to get file stats', err)
       }

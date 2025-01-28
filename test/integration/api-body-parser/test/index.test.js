@@ -8,7 +8,6 @@ import {
   fetchViaHTTP,
   initNextServerScript,
 } from 'next-test-utils'
-import clone from 'clone'
 import getPort from 'get-port'
 
 const appDir = join(__dirname, '../')
@@ -25,21 +24,21 @@ function runTests() {
     app = await launchApp(appDir, appPort, {})
     const data = await makeRequest()
     expect(data).toEqual([{ title: 'Nextjs' }])
-    killApp(app)
+    await killApp(app)
   })
 
   it('should not throw if request body is already parsed in custom middleware', async () => {
     await startServer()
     const data = await makeRequest()
     expect(data).toEqual([{ title: 'Nextjs' }])
-    killApp(server)
+    await killApp(server)
   })
 
   it("should not throw if request's content-type is invalid", async () => {
     await startServer()
     const status = await makeRequestWithInvalidContentType()
     expect(status).toBe(200)
-    killApp(server)
+    await killApp(server)
   })
 }
 
@@ -71,9 +70,8 @@ const startServer = async (optEnv = {}, opts) => {
   const scriptPath = join(appDir, 'server.js')
   context.appPort = appPort = await getPort()
   const env = Object.assign(
-    {},
-    clone(process.env),
-    { PORT: `${appPort}` },
+    { ...process.env },
+    { PORT: `${appPort}`, CUSTOM_SERVER: 'true' },
     optEnv
   )
 

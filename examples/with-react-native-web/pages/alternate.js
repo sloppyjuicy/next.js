@@ -1,4 +1,20 @@
-import { StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from "react-native";
+
+const styles = StyleSheet.create({
+  container: {
+    alignItems: "center",
+    flexGrow: 1,
+    justifyContent: "center",
+  },
+  text: {
+    alignItems: "center",
+    fontSize: 24,
+    marginBottom: 24,
+  },
+  link: {
+    color: "blue",
+  },
+});
 
 export default function Alternate() {
   return (
@@ -11,21 +27,5 @@ export default function Alternate() {
         Go Back
       </Text>
     </View>
-  )
+  );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
-  text: {
-    alignItems: 'center',
-    fontSize: 24,
-    marginBottom: 24,
-  },
-  link: {
-    color: 'blue',
-  },
-})
