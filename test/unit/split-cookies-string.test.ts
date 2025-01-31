@@ -1,5 +1,6 @@
+import type { CookieSerializeOptions } from 'cookie'
 import { splitCookiesString } from 'next/dist/server/web/utils'
-import cookie, { CookieSerializeOptions } from 'next/dist/compiled/cookie'
+import cookie from 'next/dist/compiled/cookie'
 
 function generateCookies(
   ...cookieOptions: (CookieSerializeOptions & { name: string; value: string })[]
@@ -44,6 +45,16 @@ describe('splitCookiesString', () => {
       expect(result).toEqual(expected)
     })
 
+    it('should parse path', () => {
+      const { joined, expected } = generateCookies({
+        name: 'foo',
+        value: 'bar',
+        path: '/path',
+      })
+      const result = splitCookiesString(joined)
+      expect(result).toEqual(expected)
+    })
+
     it('should parse with all the options', () => {
       const { joined, expected } = generateCookies({
         name: 'foo',
@@ -61,7 +72,7 @@ describe('splitCookiesString', () => {
     })
   })
 
-  describe('with a mutliple cookies', () => {
+  describe('with a multiple cookies', () => {
     it('should parse a plain value', () => {
       const { joined, expected } = generateCookies(
         {
@@ -105,6 +116,23 @@ describe('splitCookiesString', () => {
           name: 'x',
           value: 'y',
           maxAge: 10,
+        }
+      )
+      const result = splitCookiesString(joined)
+      expect(result).toEqual(expected)
+    })
+
+    it('should parse path', () => {
+      const { joined, expected } = generateCookies(
+        {
+          name: 'foo',
+          value: 'bar',
+          path: '/path',
+        },
+        {
+          name: 'x',
+          value: 'y',
+          path: '/path',
         }
       )
       const result = splitCookiesString(joined)

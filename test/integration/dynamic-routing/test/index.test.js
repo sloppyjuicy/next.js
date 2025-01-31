@@ -5,6 +5,7 @@ import { join, dirname } from 'path'
 import fs from 'fs-extra'
 import url from 'url'
 import {
+  assertHasRedbox,
   renderViaHTTP,
   fetchViaHTTP,
   findPort,
@@ -15,7 +16,6 @@ import {
   nextStart,
   normalizeRegEx,
   check,
-  hasRedbox,
   getRedboxHeader,
 } from 'next-test-utils'
 import cheerio from 'cheerio'
@@ -27,7 +27,138 @@ let buildId
 const appDir = join(__dirname, '../')
 const buildIdPath = join(appDir, '.next/BUILD_ID')
 
-function runTests(dev) {
+function runTests({ dev }) {
+  if (!dev) {
+    it('should have correct cache entries on prefetch', async () => {
+      const browser = await webdriver(appPort, '/')
+      await browser.waitForCondition('!!window.next.router.isReady')
+
+      const getCacheKeys = async () => {
+        return (await browser.eval('Object.keys(window.next.router.sdc)'))
+          .map((key) => {
+            // strip http://localhost:PORT
+            // and then strip buildId prefix
+            return key
+              .substring(key.indexOf('/_next'))
+              .replace(/\/_next\/data\/(.*?)\//, '/_next/data/BUILD_ID/')
+          })
+          .sort()
+      }
+
+      const cacheKeys = await getCacheKeys()
+      expect(cacheKeys).toEqual(
+        process.env.__MIDDLEWARE_TEST
+          ? [
+              '/_next/data/BUILD_ID/[name].json?another=value&name=%5Bname%5D',
+              '/_next/data/BUILD_ID/added-later/first.json?name=added-later&comment=first',
+              '/_next/data/BUILD_ID/blog/321/comment/123.json?name=321&id=123',
+              '/_next/data/BUILD_ID/d/dynamic-1.json?id=dynamic-1',
+              '/_next/data/BUILD_ID/on-mount/test-w-hash.json?post=test-w-hash',
+              '/_next/data/BUILD_ID/p1/p2/all-ssg/hello.json?rest=hello',
+              '/_next/data/BUILD_ID/p1/p2/all-ssg/hello1/hello2.json?rest=hello1&rest=hello2',
+              '/_next/data/BUILD_ID/p1/p2/all-ssr/:42.json?rest=%3A42',
+              '/_next/data/BUILD_ID/p1/p2/all-ssr/hello.json?rest=hello',
+              '/_next/data/BUILD_ID/p1/p2/all-ssr/hello1%2F/he%2Fllo2.json?rest=hello1%2F&rest=he%2Fllo2',
+              '/_next/data/BUILD_ID/p1/p2/all-ssr/hello1/hello2.json?rest=hello1&rest=hello2',
+              '/_next/data/BUILD_ID/p1/p2/nested-all-ssg/hello.json?rest=hello',
+              '/_next/data/BUILD_ID/p1/p2/nested-all-ssg/hello1/hello2.json?rest=hello1&rest=hello2',
+              '/_next/data/BUILD_ID/post-1.json?fromHome=true&name=post-1',
+              '/_next/data/BUILD_ID/post-1.json?hidden=value&name=post-1',
+              '/_next/data/BUILD_ID/post-1.json?name=post-1',
+              '/_next/data/BUILD_ID/post-1.json?name=post-1&another=value',
+              '/_next/data/BUILD_ID/post-1/comment-1.json?name=post-1&comment=comment-1',
+              '/_next/data/BUILD_ID/post-1/comments.json?name=post-1',
+            ]
+          : [
+              '/_next/data/BUILD_ID/p1/p2/all-ssg/hello.json?rest=hello',
+              '/_next/data/BUILD_ID/p1/p2/all-ssg/hello1/hello2.json?rest=hello1&rest=hello2',
+              '/_next/data/BUILD_ID/p1/p2/nested-all-ssg/hello.json?rest=hello',
+              '/_next/data/BUILD_ID/p1/p2/nested-all-ssg/hello1/hello2.json?rest=hello1&rest=hello2',
+            ]
+      )
+
+      // ensure no new cache entries after navigation
+      const links = [
+        {
+          linkSelector: '#ssg-catch-all-single',
+          waitForSelector: '#all-ssg-content',
+        },
+        {
+          linkSelector: '#ssg-catch-all-single-interpolated',
+          waitForSelector: '#all-ssg-content',
+        },
+        {
+          linkSelector: '#ssg-catch-all-multi',
+          waitForSelector: '#all-ssg-content',
+        },
+        {
+          linkSelector: '#ssg-catch-all-multi-no-as',
+          waitForSelector: '#all-ssg-content',
+        },
+        {
+          linkSelector: '#ssg-catch-all-multi',
+          waitForSelector: '#all-ssg-content',
+        },
+        {
+          linkSelector: '#nested-ssg-catch-all-single',
+          waitForSelector: '#nested-all-ssg-content',
+        },
+        {
+          linkSelector: '#nested-ssg-catch-all-multi',
+          waitForSelector: '#nested-all-ssg-content',
+        },
+      ]
+
+      for (const { linkSelector, waitForSelector } of links) {
+        await browser.elementByCss(linkSelector).click()
+        await browser.waitForElementByCss(waitForSelector)
+        await browser.back()
+        await browser.waitForElementByCss(linkSelector)
+      }
+      const newCacheKeys = await getCacheKeys()
+      expect(newCacheKeys).toEqual(
+        [
+          ...(process.env.__MIDDLEWARE_TEST
+            ? // data route is fetched with middleware due to query hydration
+              // since middleware matches the index route
+              ['/_next/data/BUILD_ID/index.json']
+            : []),
+          ...cacheKeys,
+        ].sort()
+      )
+    })
+  }
+
+  if (dev) {
+    // TODO: pong event not longer exist, refactor test.
+    it.skip('should not have error after pinging WebSocket', async () => {
+      const browser = await webdriver(appPort, '/')
+      await browser.eval(`(function() {
+        window.uncaughtErrs = []
+        window.addEventListener('uncaughtexception', function (err) {
+          window.uncaught.push(err)
+        })
+      })()`)
+      const curFrames = [...(await browser.websocketFrames())]
+      await check(async () => {
+        const frames = await browser.websocketFrames()
+        const newFrames = frames.slice(curFrames.length)
+        // console.error({newFrames, curFrames, frames});
+
+        return newFrames.some((frame) => {
+          try {
+            const data = JSON.parse(frame.payload)
+            return data.event === 'pong'
+          } catch (_) {}
+          return false
+        })
+          ? 'success'
+          : JSON.stringify(newFrames)
+      }, 'success')
+      expect(await browser.eval('window.uncaughtErrs.length')).toBe(0)
+    })
+  }
+
   it('should support long URLs for dynamic routes', async () => {
     const res = await fetchViaHTTP(
       appPort,
@@ -902,8 +1033,11 @@ function runTests(dev) {
       () => browser.eval(`document.body.innerHTML`),
       /onmpost:.*post-1/
     )
-    const scrollPosition = await browser.eval('window.pageYOffset')
-    expect(scrollPosition).toBe(7232)
+
+    const elementPosition = await browser.eval(
+      `document.querySelector("#item-400").getBoundingClientRect().y`
+    )
+    expect(elementPosition).toEqual(0)
   })
 
   it('should scroll to a hash on client-side navigation', async () => {
@@ -914,8 +1048,10 @@ function runTests(dev) {
     const text = await browser.elementByCss('#asdf').text()
     expect(text).toMatch(/onmpost:.*test-w-hash/)
 
-    const scrollPosition = await browser.eval('window.pageYOffset')
-    expect(scrollPosition).toBe(7232)
+    const elementPosition = await browser.eval(
+      `document.querySelector("#item-400").getBoundingClientRect().y`
+    )
+    expect(elementPosition).toEqual(0)
   })
 
   it('should prioritize public files over dynamic route', async () => {
@@ -995,7 +1131,13 @@ function runTests(dev) {
         found++
       }
     }
-    expect(found).toBe(0)
+
+    try {
+      expect(found).toBe(0)
+    } catch (err) {
+      require('console').error(html)
+      throw err
+    }
   })
 
   if (dev) {
@@ -1014,6 +1156,26 @@ function runTests(dev) {
         }
       `
       )
+      await check(async () => {
+        const response = await fetchViaHTTP(
+          appPort,
+          '/_next/static/development/_devPagesManifest.json',
+          undefined,
+          {
+            credentials: 'same-origin',
+          }
+        )
+
+        // Check if the response was successful (status code in the range 200-299)
+        if (!response.ok) {
+          return 'fail'
+        }
+
+        const contents = await response.text()
+        const containsAddedLater = contents.includes('added-later')
+
+        return containsAddedLater ? 'success' : 'fail'
+      }, 'success')
 
       await check(async () => {
         const contents = await renderViaHTTP(
@@ -1032,17 +1194,19 @@ function runTests(dev) {
       expect(text).toBe('slug: first')
     })
 
-    it('should show error when interpolating fails for href', async () => {
-      const browser = await webdriver(appPort, '/')
-      await browser
-        .elementByCss('#view-post-1-interpolated-incorrectly')
-        .click()
-      expect(await hasRedbox(browser)).toBe(true)
-      const header = await getRedboxHeader(browser)
-      expect(header).toContain(
-        'The provided `href` (/[name]?another=value) value is missing query values (name) to be interpolated properly.'
-      )
-    })
+    if (!process.env.__MIDDLEWARE_TEST) {
+      it('should show error when interpolating fails for href', async () => {
+        const browser = await webdriver(appPort, '/')
+        await browser
+          .elementByCss('#view-post-1-interpolated-incorrectly')
+          .click()
+        await assertHasRedbox(browser)
+        const header = await getRedboxHeader(browser)
+        expect(header).toContain(
+          'The provided `href` (/[name]?another=value) value is missing query values (name) to be interpolated properly.'
+        )
+      })
+    }
 
     it('should work with HMR correctly', async () => {
       const browser = await webdriver(appPort, '/post-1/comments')
@@ -1089,6 +1253,7 @@ function runTests(dev) {
       expect(manifest).toEqual({
         version: 3,
         pages404: true,
+        caseSensitive: false,
         basePath: '',
         headers: [],
         rewrites: [],
@@ -1114,10 +1279,10 @@ function runTests(dev) {
             )}\\/b\\/([^\\/]+?)\\.json$`,
             namedDataRouteRegex: `^/_next/data/${escapeRegex(
               buildId
-            )}/b/(?<a>[^/]+?)\\.json$`,
+            )}/b/(?<nxtP123>[^/]+?)\\.json$`,
             page: '/b/[123]',
             routeKeys: {
-              a: '123',
+              nxtP123: 'nxtP123',
             },
           },
           {
@@ -1129,13 +1294,13 @@ function runTests(dev) {
             )}/c/(?<a>[^/]+?)\\.json$`,
             page: '/c/[alongparamnameshouldbeallowedeventhoughweird]',
             routeKeys: {
-              a: 'alongparamnameshouldbeallowedeventhoughweird',
+              a: 'nxtPalongparamnameshouldbeallowedeventhoughweird',
             },
           },
           {
             namedDataRouteRegex: `^/_next/data/${escapeRegex(
               buildId
-            )}/p1/p2/all\\-ssg/(?<rest>.+?)\\.json$`,
+            )}/p1/p2/all\\-ssg/(?<nxtPrest>.+?)\\.json$`,
             dataRouteRegex: normalizeRegEx(
               `^\\/_next\\/data\\/${escapeRegex(
                 buildId
@@ -1143,13 +1308,13 @@ function runTests(dev) {
             ),
             page: '/p1/p2/all-ssg/[...rest]',
             routeKeys: {
-              rest: 'rest',
+              nxtPrest: 'nxtPrest',
             },
           },
           {
             namedDataRouteRegex: `^/_next/data/${escapeRegex(
               buildId
-            )}/p1/p2/nested\\-all\\-ssg/(?<rest>.+?)\\.json$`,
+            )}/p1/p2/nested\\-all\\-ssg/(?<nxtPrest>.+?)\\.json$`,
             dataRouteRegex: normalizeRegEx(
               `^\\/_next\\/data\\/${escapeRegex(
                 buildId
@@ -1157,13 +1322,13 @@ function runTests(dev) {
             ),
             page: '/p1/p2/nested-all-ssg/[...rest]',
             routeKeys: {
-              rest: 'rest',
+              nxtPrest: 'nxtPrest',
             },
           },
           {
             namedDataRouteRegex: `^/_next/data/${escapeRegex(
               buildId
-            )}/p1/p2/predefined\\-ssg/(?<rest>.+?)\\.json$`,
+            )}/p1/p2/predefined\\-ssg/(?<nxtPrest>.+?)\\.json$`,
             dataRouteRegex: normalizeRegEx(
               `^\\/_next\\/data\\/${escapeRegex(
                 buildId
@@ -1171,28 +1336,44 @@ function runTests(dev) {
             ),
             page: '/p1/p2/predefined-ssg/[...rest]',
             routeKeys: {
-              rest: 'rest',
+              nxtPrest: 'nxtPrest',
+            },
+          },
+          {
+            dataRouteRegex: normalizeRegEx(
+              `^\\/_next\\/data\\/${escapeRegex(
+                buildId
+              )}\\/([^\\/]+?)\\/([^\\/]+?)\\/(.+?)\\.json$`
+            ),
+            namedDataRouteRegex: `^/_next/data/${escapeRegex(
+              buildId
+            )}/(?<nxtPname>[^/]+?)/(?<nxtPcomment>[^/]+?)/(?<nxtPrest>.+?)\\.json$`,
+            page: '/[name]/[comment]/[...rest]',
+            routeKeys: {
+              nxtPcomment: 'nxtPcomment',
+              nxtPname: 'nxtPname',
+              nxtPrest: 'nxtPrest',
             },
           },
         ],
         dynamicRoutes: [
           {
-            namedRegex: '^/b/(?<a>[^/]+?)(?:/)?$',
+            namedRegex: '^/b/(?<nxtP123>[^/]+?)(?:/)?$',
             page: '/b/[123]',
             regex: normalizeRegEx('^\\/b\\/([^\\/]+?)(?:\\/)?$'),
             routeKeys: {
-              a: '123',
+              nxtP123: 'nxtP123',
             },
           },
           {
-            namedRegex: `^/blog/(?<name>[^/]+?)/comment/(?<id>[^/]+?)(?:/)?$`,
+            namedRegex: `^/blog/(?<nxtPname>[^/]+?)/comment/(?<nxtPid>[^/]+?)(?:/)?$`,
             page: '/blog/[name]/comment/[id]',
             regex: normalizeRegEx(
               '^\\/blog\\/([^\\/]+?)\\/comment\\/([^\\/]+?)(?:\\/)?$'
             ),
             routeKeys: {
-              name: 'name',
-              id: 'id',
+              nxtPname: 'nxtPname',
+              nxtPid: 'nxtPid',
             },
           },
           {
@@ -1200,113 +1381,186 @@ function runTests(dev) {
             page: '/c/[alongparamnameshouldbeallowedeventhoughweird]',
             regex: normalizeRegEx('^\\/c\\/([^\\/]+?)(?:\\/)?$'),
             routeKeys: {
-              a: 'alongparamnameshouldbeallowedeventhoughweird',
+              a: 'nxtPalongparamnameshouldbeallowedeventhoughweird',
             },
           },
           {
-            namedRegex: '^/catchall\\-dash/(?<helloworld>.+?)(?:/)?$',
+            namedRegex: '^/catchall\\-dash/(?<nxtPhelloworld>.+?)(?:/)?$',
             page: '/catchall-dash/[...hello-world]',
             regex: normalizeRegEx('^\\/catchall\\-dash\\/(.+?)(?:\\/)?$'),
             routeKeys: {
-              helloworld: 'hello-world',
+              nxtPhelloworld: 'nxtPhello-world',
             },
           },
           {
-            namedRegex: '^/d/(?<id>[^/]+?)(?:/)?$',
+            namedRegex: '^/d/(?<nxtPid>[^/]+?)(?:/)?$',
             page: '/d/[id]',
             regex: normalizeRegEx('^\\/d\\/([^\\/]+?)(?:\\/)?$'),
             routeKeys: {
-              id: 'id',
+              nxtPid: 'nxtPid',
             },
           },
           {
-            namedRegex: '^/dash/(?<helloworld>[^/]+?)(?:/)?$',
+            namedRegex: '^/dash/(?<nxtPhelloworld>[^/]+?)(?:/)?$',
             page: '/dash/[hello-world]',
             regex: normalizeRegEx('^\\/dash\\/([^\\/]+?)(?:\\/)?$'),
             routeKeys: {
-              helloworld: 'hello-world',
+              nxtPhelloworld: 'nxtPhello-world',
             },
           },
           {
-            namedRegex: `^/on\\-mount/(?<post>[^/]+?)(?:/)?$`,
+            namedRegex: '^/index/(?<nxtPslug>.+?)(?:/)?$',
+            page: '/index/[...slug]',
+            regex: normalizeRegEx('^/index/(.+?)(?:/)?$'),
+            routeKeys: {
+              nxtPslug: 'nxtPslug',
+            },
+          },
+          {
+            namedRegex: `^/on\\-mount/(?<nxtPpost>[^/]+?)(?:/)?$`,
             page: '/on-mount/[post]',
             regex: normalizeRegEx('^\\/on\\-mount\\/([^\\/]+?)(?:\\/)?$'),
             routeKeys: {
-              post: 'post',
+              nxtPpost: 'nxtPpost',
             },
           },
           {
-            namedRegex: `^/p1/p2/all\\-ssg/(?<rest>.+?)(?:/)?$`,
+            namedRegex: `^/p1/p2/all\\-ssg/(?<nxtPrest>.+?)(?:/)?$`,
             page: '/p1/p2/all-ssg/[...rest]',
             regex: normalizeRegEx('^\\/p1\\/p2\\/all\\-ssg\\/(.+?)(?:\\/)?$'),
             routeKeys: {
-              rest: 'rest',
+              nxtPrest: 'nxtPrest',
             },
           },
           {
-            namedRegex: `^/p1/p2/all\\-ssr/(?<rest>.+?)(?:/)?$`,
+            namedRegex: `^/p1/p2/all\\-ssr/(?<nxtPrest>.+?)(?:/)?$`,
             page: '/p1/p2/all-ssr/[...rest]',
             regex: normalizeRegEx('^\\/p1\\/p2\\/all\\-ssr\\/(.+?)(?:\\/)?$'),
             routeKeys: {
-              rest: 'rest',
+              nxtPrest: 'nxtPrest',
             },
           },
           {
-            namedRegex: `^/p1/p2/nested\\-all\\-ssg/(?<rest>.+?)(?:/)?$`,
+            namedRegex: `^/p1/p2/nested\\-all\\-ssg/(?<nxtPrest>.+?)(?:/)?$`,
             page: '/p1/p2/nested-all-ssg/[...rest]',
             regex: normalizeRegEx(
               '^\\/p1\\/p2\\/nested\\-all\\-ssg\\/(.+?)(?:\\/)?$'
             ),
             routeKeys: {
-              rest: 'rest',
+              nxtPrest: 'nxtPrest',
             },
           },
           {
-            namedRegex: `^/p1/p2/predefined\\-ssg/(?<rest>.+?)(?:/)?$`,
+            namedRegex: `^/p1/p2/predefined\\-ssg/(?<nxtPrest>.+?)(?:/)?$`,
             page: '/p1/p2/predefined-ssg/[...rest]',
             regex: normalizeRegEx(
               '^\\/p1\\/p2\\/predefined\\-ssg\\/(.+?)(?:\\/)?$'
             ),
             routeKeys: {
-              rest: 'rest',
+              nxtPrest: 'nxtPrest',
             },
           },
           {
-            namedRegex: `^/(?<name>[^/]+?)(?:/)?$`,
+            namedRegex: `^/(?<nxtPname>[^/]+?)(?:/)?$`,
             page: '/[name]',
             regex: normalizeRegEx('^\\/([^\\/]+?)(?:\\/)?$'),
             routeKeys: {
-              name: 'name',
+              nxtPname: 'nxtPname',
             },
           },
           {
-            namedRegex: `^/(?<name>[^/]+?)/comments(?:/)?$`,
+            namedRegex: `^/(?<nxtPname>[^/]+?)/comments(?:/)?$`,
             page: '/[name]/comments',
             regex: normalizeRegEx('^\\/([^\\/]+?)\\/comments(?:\\/)?$'),
             routeKeys: {
-              name: 'name',
+              nxtPname: 'nxtPname',
             },
           },
           {
-            namedRegex: `^/(?<name>[^/]+?)/on\\-mount\\-redir(?:/)?$`,
+            namedRegex: `^/(?<nxtPname>[^/]+?)/on\\-mount\\-redir(?:/)?$`,
             page: '/[name]/on-mount-redir',
             regex: normalizeRegEx(
               '^\\/([^\\/]+?)\\/on\\-mount\\-redir(?:\\/)?$'
             ),
             routeKeys: {
-              name: 'name',
+              nxtPname: 'nxtPname',
             },
           },
           {
-            namedRegex: `^/(?<name>[^/]+?)/(?<comment>[^/]+?)(?:/)?$`,
+            namedRegex: `^/(?<nxtPname>[^/]+?)/(?<nxtPcomment>[^/]+?)(?:/)?$`,
             page: '/[name]/[comment]',
             regex: normalizeRegEx('^\\/([^\\/]+?)\\/([^\\/]+?)(?:\\/)?$'),
             routeKeys: {
-              name: 'name',
-              comment: 'comment',
+              nxtPname: 'nxtPname',
+              nxtPcomment: 'nxtPcomment',
+            },
+          },
+          {
+            namedRegex:
+              '^/(?<nxtPname>[^/]+?)/(?<nxtPcomment>[^/]+?)/(?<nxtPrest>.+?)(?:/)?$',
+            page: '/[name]/[comment]/[...rest]',
+            regex: normalizeRegEx(
+              '^\\/([^\\/]+?)\\/([^\\/]+?)\\/(.+?)(?:\\/)?$'
+            ),
+            routeKeys: {
+              nxtPcomment: 'nxtPcomment',
+              nxtPname: 'nxtPname',
+              nxtPrest: 'nxtPrest',
             },
           },
         ],
+        rewriteHeaders: {
+          pathHeader: 'x-nextjs-rewritten-path',
+          queryHeader: 'x-nextjs-rewritten-query',
+        },
+        rsc: {
+          header: 'RSC',
+          contentTypeHeader: 'text/x-component',
+          didPostponeHeader: 'x-nextjs-postponed',
+          varyHeader:
+            'RSC, Next-Router-State-Tree, Next-Router-Prefetch, Next-Router-Segment-Prefetch',
+          prefetchHeader: 'Next-Router-Prefetch',
+          prefetchSuffix: '.prefetch.rsc',
+          suffix: '.rsc',
+        },
+      })
+    })
+
+    it('should output a pages-manifest correctly', async () => {
+      const manifest = await fs.readJson(
+        join(appDir, '.next/server/pages-manifest.json')
+      )
+
+      expect(manifest).toEqual({
+        '/[name]/[comment]': 'pages/[name]/[comment].js',
+        '/[name]/[comment]/[...rest]': 'pages/[name]/[comment]/[...rest].js',
+        '/[name]/comments': 'pages/[name]/comments.js',
+        '/[name]': 'pages/[name].js',
+        '/[name]/on-mount-redir': 'pages/[name]/on-mount-redir.html',
+        '/another': 'pages/another.html',
+        '/b/[123]': 'pages/b/[123].js',
+        '/blog/[name]/comment/[id]': 'pages/blog/[name]/comment/[id].js',
+        '/c/[alongparamnameshouldbeallowedeventhoughweird]':
+          'pages/c/[alongparamnameshouldbeallowedeventhoughweird].js',
+        '/catchall-dash/[...hello-world]':
+          'pages/catchall-dash/[...hello-world].html',
+        '/d/[id]': 'pages/d/[id].html',
+        '/dash/[hello-world]': 'pages/dash/[hello-world].html',
+        '/': 'pages/index.html',
+        '/index/[...slug]': process.env.TURBOPACK
+          ? 'pages/index/index/[...slug].html'
+          : 'pages/index/[...slug].html',
+        '/on-mount/[post]': 'pages/on-mount/[post].html',
+        '/p1/p2/all-ssg/[...rest]': 'pages/p1/p2/all-ssg/[...rest].js',
+        '/p1/p2/all-ssr/[...rest]': 'pages/p1/p2/all-ssr/[...rest].js',
+        '/p1/p2/nested-all-ssg/[...rest]':
+          'pages/p1/p2/nested-all-ssg/[...rest].js',
+        '/p1/p2/predefined-ssg/[...rest]':
+          'pages/p1/p2/predefined-ssg/[...rest].js',
+        '/_app': 'pages/_app.js',
+        '/_error': 'pages/_error.js',
+        '/_document': 'pages/_document.js',
+        '/404': 'pages/404.html',
       })
     })
   }
@@ -1315,51 +1569,53 @@ function runTests(dev) {
 const nextConfig = join(appDir, 'next.config.js')
 
 describe('Dynamic Routing', () => {
-  describe('dev mode', () => {
-    beforeAll(async () => {
-      await fs.remove(nextConfig)
+  if (process.env.__MIDDLEWARE_TEST) {
+    const middlewarePath = join(__dirname, '../middleware.js')
 
-      appPort = await findPort()
-      app = await launchApp(appDir, appPort)
-      buildId = 'development'
-    })
-    afterAll(() => killApp(app))
-
-    runTests(true)
-  })
-
-  describe('production mode', () => {
-    beforeAll(async () => {
-      await fs.remove(nextConfig)
-
-      await nextBuild(appDir)
-      buildId = await fs.readFile(buildIdPath, 'utf8')
-
-      appPort = await findPort()
-      app = await nextStart(appDir, appPort)
-    })
-    afterAll(() => killApp(app))
-
-    runTests()
-  })
-
-  describe('serverless mode', () => {
     beforeAll(async () => {
       await fs.writeFile(
-        nextConfig,
-        `module.exports = { target: 'serverless' }`
+        middlewarePath,
+        `
+        import { NextResponse } from 'next/server'
+        export default function middleware() {
+          return NextResponse.next()
+        }
+      `
       )
-
-      await nextBuild(appDir)
-      buildId = await fs.readFile(buildIdPath, 'utf8')
-
-      appPort = await findPort()
-      app = await nextStart(appDir, appPort)
     })
-    afterAll(async () => {
-      await killApp(app)
-      await fs.remove(nextConfig)
-    })
-    runTests()
-  })
+    afterAll(() => fs.remove(middlewarePath))
+  }
+
+  ;(process.env.TURBOPACK_BUILD ? describe.skip : describe)(
+    'development mode',
+    () => {
+      beforeAll(async () => {
+        await fs.remove(nextConfig)
+
+        appPort = await findPort()
+        app = await launchApp(appDir, appPort)
+        buildId = 'development'
+      })
+      afterAll(() => killApp(app))
+
+      runTests({ dev: true })
+    }
+  )
+  ;(process.env.TURBOPACK_DEV ? describe.skip : describe)(
+    'production mode',
+    () => {
+      beforeAll(async () => {
+        await fs.remove(nextConfig)
+
+        await nextBuild(appDir)
+        buildId = await fs.readFile(buildIdPath, 'utf8')
+
+        appPort = await findPort()
+        app = await nextStart(appDir, appPort)
+      })
+      afterAll(() => killApp(app))
+
+      runTests({ dev: false })
+    }
+  )
 })

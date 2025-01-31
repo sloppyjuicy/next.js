@@ -6,7 +6,6 @@ import fs from 'fs-extra'
 import {
   fetchViaHTTP,
   findPort,
-  initNextServerScript,
   killApp,
   launchApp,
   nextBuild,
@@ -14,12 +13,10 @@ import {
   renderViaHTTP,
 } from 'next-test-utils'
 import webdriver from 'next-webdriver'
-import os from 'os'
 import { join } from 'path'
 import qs from 'querystring'
 
 const appDir = join(__dirname, '..')
-const nextConfigPath = join(appDir, 'next.config.js')
 
 async function getBuildId() {
   return fs.readFile(join(appDir, '.next', 'BUILD_ID'), 'utf8')
@@ -176,149 +173,120 @@ function runTests(startServer = nextStart) {
   })
 }
 
-const startServerlessEmulator = async (dir, port) => {
-  const scriptPath = join(dir, 'server.js')
-  const env = Object.assign(
-    {},
-    { ...process.env },
-    { PORT: port, BUILD_ID: await getBuildId() }
-  )
-  return initNextServerScript(scriptPath, /ready on/i, env)
-}
-
 describe('ServerSide Props Preview Mode', () => {
-  describe('Development Mode', () => {
-    beforeAll(async () => {
-      await fs.remove(nextConfigPath)
-    })
+  ;(process.env.TURBOPACK_BUILD ? describe.skip : describe)(
+    'development mode',
+    () => {
+      let appPort, app
+      it('should start development application', async () => {
+        appPort = await findPort()
+        app = await launchApp(appDir, appPort)
+      })
 
-    let appPort, app
-    it('should start development application', async () => {
-      appPort = await findPort()
-      app = await launchApp(appDir, appPort)
-    })
+      let previewCookieString
+      it('should enable preview mode', async () => {
+        const res = await fetchViaHTTP(appPort, '/api/preview', {
+          lets: 'goooo',
+        })
+        expect(res.status).toBe(200)
 
-    let previewCookieString
-    it('should enable preview mode', async () => {
-      const res = await fetchViaHTTP(appPort, '/api/preview', { lets: 'goooo' })
-      expect(res.status).toBe(200)
+        const cookies = res.headers
+          .get('set-cookie')
+          .split(',')
+          .map(cookie.parse)
 
-      const cookies = res.headers.get('set-cookie').split(',').map(cookie.parse)
+        expect(cookies.length).toBe(2)
+        previewCookieString =
+          cookie.serialize(
+            '__prerender_bypass',
+            cookies[0].__prerender_bypass
+          ) +
+          '; ' +
+          cookie.serialize(
+            '__next_preview_data',
+            cookies[1].__next_preview_data
+          )
+      })
 
-      expect(cookies.length).toBe(2)
-      previewCookieString =
-        cookie.serialize('__prerender_bypass', cookies[0].__prerender_bypass) +
-        '; ' +
-        cookie.serialize('__next_preview_data', cookies[1].__next_preview_data)
-    })
+      it('should return cookies to be expired after dev server reboot', async () => {
+        await killApp(app)
+        appPort = await findPort()
+        app = await launchApp(appDir, appPort)
 
-    it('should return cookies to be expired after dev server reboot', async () => {
-      await killApp(app)
-      app = await launchApp(appDir, appPort)
+        const res = await fetchViaHTTP(
+          appPort,
+          '/',
+          {},
+          { headers: { Cookie: previewCookieString } }
+        )
+        expect(res.status).toBe(200)
 
-      const res = await fetchViaHTTP(
-        appPort,
-        '/',
-        {},
-        { headers: { Cookie: previewCookieString } }
-      )
-      expect(res.status).toBe(200)
+        const body = await res.text()
+        // "err":{"name":"TypeError","message":"Cannot read property 'previewModeId' of undefined"
+        expect(body).not.toContain('"err"')
+        expect(body).not.toContain('TypeError')
+        expect(body).not.toContain('previewModeId')
 
-      const body = await res.text()
-      // "err":{"name":"TypeError","message":"Cannot read property 'previewModeId' of undefined"
-      expect(body).not.toContain('err')
-      expect(body).not.toContain('TypeError')
-      expect(body).not.toContain('previewModeId')
+        const cookies = res.headers
+          .get('set-cookie')
+          .replace(/(=(?!Lax)\w{3}),/g, '$1')
+          .split(',')
+          .map(cookie.parse)
 
-      const cookies = res.headers
-        .get('set-cookie')
-        .replace(/(=(?!Lax)\w{3}),/g, '$1')
-        .split(',')
-        .map(cookie.parse)
+        expect(cookies.length).toBe(2)
+      })
 
-      expect(cookies.length).toBe(2)
-    })
+      /** @type {import('next-webdriver').Chain} */
+      let browser
+      it('should start the client-side browser', async () => {
+        browser = await webdriver(
+          appPort,
+          '/api/preview?' + qs.stringify({ client: 'mode' })
+        )
+      })
 
-    /** @type import('next-webdriver').Chain */
-    let browser
-    it('should start the client-side browser', async () => {
-      browser = await webdriver(
-        appPort,
-        '/api/preview?' + qs.stringify({ client: 'mode' })
-      )
-    })
+      it('should fetch preview data on SSR', async () => {
+        await browser.get(`http://localhost:${appPort}/`)
+        await browser.waitForElementByCss('#props-pre')
+        // expect(await browser.elementById('props-pre').text()).toBe('Has No Props')
+        // await new Promise(resolve => setTimeout(resolve, 2000))
+        expect(await browser.elementById('props-pre').text()).toBe(
+          'true and {"client":"mode"}'
+        )
+      })
 
-    it('should fetch preview data on SSR', async () => {
-      await browser.get(`http://localhost:${appPort}/`)
-      await browser.waitForElementByCss('#props-pre')
-      // expect(await browser.elementById('props-pre').text()).toBe('Has No Props')
-      // await new Promise(resolve => setTimeout(resolve, 2000))
-      expect(await browser.elementById('props-pre').text()).toBe(
-        'true and {"client":"mode"}'
-      )
-    })
+      it('should fetch preview data on CST', async () => {
+        await browser.get(`http://localhost:${appPort}/to-index`)
+        await browser.waitForElementByCss('#to-index')
+        await browser.eval('window.itdidnotrefresh = "hello"')
+        await browser.elementById('to-index').click()
+        await browser.waitForElementByCss('#props-pre')
+        expect(await browser.eval('window.itdidnotrefresh')).toBe('hello')
+        expect(await browser.elementById('props-pre').text()).toBe(
+          'true and {"client":"mode"}'
+        )
+      })
 
-    it('should fetch preview data on CST', async () => {
-      await browser.get(`http://localhost:${appPort}/to-index`)
-      await browser.waitForElementByCss('#to-index')
-      await browser.eval('window.itdidnotrefresh = "hello"')
-      await browser.elementById('to-index').click()
-      await browser.waitForElementByCss('#props-pre')
-      expect(await browser.eval('window.itdidnotrefresh')).toBe('hello')
-      expect(await browser.elementById('props-pre').text()).toBe(
-        'true and {"client":"mode"}'
-      )
-    })
+      it('should fetch prerendered data', async () => {
+        await browser.get(`http://localhost:${appPort}/api/reset`)
 
-    it('should fetch prerendered data', async () => {
-      await browser.get(`http://localhost:${appPort}/api/reset`)
+        await browser.get(`http://localhost:${appPort}/`)
+        await browser.waitForElementByCss('#props-pre')
+        expect(await browser.elementById('props-pre').text()).toBe(
+          'false and null'
+        )
+      })
 
-      await browser.get(`http://localhost:${appPort}/`)
-      await browser.waitForElementByCss('#props-pre')
-      expect(await browser.elementById('props-pre').text()).toBe(
-        'false and null'
-      )
-    })
-
-    afterAll(async () => {
-      await browser.close()
-      await killApp(app)
-    })
-  })
-
-  describe('Server Mode', () => {
-    beforeAll(async () => {
-      await fs.remove(nextConfigPath)
-    })
-
-    runTests()
-  })
-
-  describe('Serverless Mode', () => {
-    beforeAll(async () => {
-      await fs.writeFile(
-        nextConfigPath,
-        `module.exports = { target: 'experimental-serverless-trace' }` + os.EOL
-      )
-    })
-    afterAll(async () => {
-      await fs.remove(nextConfigPath)
-    })
-
-    runTests()
-  })
-
-  describe('Emulated Serverless Mode', () => {
-    beforeAll(async () => {
-      await fs.writeFile(
-        nextConfigPath,
-        `module.exports = { target: 'experimental-serverless-trace' }` + os.EOL
-      )
-    })
-    afterAll(async () => {
-      await fs.remove(nextConfigPath)
-    })
-
-    runTests(startServerlessEmulator)
-  })
+      afterAll(async () => {
+        await browser.close()
+        await killApp(app)
+      })
+    }
+  )
+  ;(process.env.TURBOPACK_DEV ? describe.skip : describe)(
+    'production mode',
+    () => {
+      runTests()
+    }
+  )
 })

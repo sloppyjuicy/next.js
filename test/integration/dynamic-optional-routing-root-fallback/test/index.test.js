@@ -51,59 +51,39 @@ function runTests() {
 const nextConfig = join(appDir, 'next.config.js')
 
 describe('Dynamic Optional Routing Root Fallback', () => {
-  describe('dev mode', () => {
-    beforeAll(async () => {
-      await fs.remove(join(appDir, '.next'))
+  ;(process.env.TURBOPACK_BUILD ? describe.skip : describe)(
+    'development mode',
+    () => {
+      beforeAll(async () => {
+        await fs.remove(join(appDir, '.next'))
 
-      appPort = await findPort()
-      app = await launchApp(appDir, appPort)
-    })
-    afterAll(() => killApp(app))
+        appPort = await findPort()
+        app = await launchApp(appDir, appPort)
+      })
+      afterAll(() => killApp(app))
 
-    runTests()
-  })
+      runTests()
+    }
+  )
+  ;(process.env.TURBOPACK_DEV ? describe.skip : describe)(
+    'production mode',
+    () => {
+      beforeAll(async () => {
+        await fs.remove(join(appDir, '.next'))
 
-  describe('production mode', () => {
-    beforeAll(async () => {
-      await fs.remove(join(appDir, '.next'))
+        const curConfig = await fs.readFile(nextConfig, 'utf8')
 
-      const curConfig = await fs.readFile(nextConfig, 'utf8')
+        if (curConfig.includes('target')) {
+          await fs.writeFile(nextConfig, `module.exports = {}`)
+        }
+        await nextBuild(appDir)
 
-      if (curConfig.includes('target')) {
-        await fs.writeFile(nextConfig, `module.exports = {}`)
-      }
-      await nextBuild(appDir)
+        appPort = await findPort()
+        app = await nextStart(appDir, appPort)
+      })
+      afterAll(() => killApp(app))
 
-      appPort = await findPort()
-      app = await nextStart(appDir, appPort)
-    })
-    afterAll(() => killApp(app))
-
-    runTests()
-  })
-
-  describe('serverless mode', () => {
-    let origNextConfig
-
-    beforeAll(async () => {
-      await fs.remove(join(appDir, '.next'))
-
-      origNextConfig = await fs.readFile(nextConfig, 'utf8')
-      await fs.writeFile(
-        nextConfig,
-        `module.exports = { target: 'serverless' }`
-      )
-
-      await nextBuild(appDir)
-
-      appPort = await findPort()
-      app = await nextStart(appDir, appPort)
-    })
-    afterAll(async () => {
-      await fs.writeFile(nextConfig, origNextConfig)
-      await killApp(app)
-    })
-
-    runTests()
-  })
+      runTests()
+    }
+  )
 })
