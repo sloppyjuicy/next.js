@@ -1,5 +1,8 @@
 module.exports = {
-  // target: 'serverless',
+  // REPLACEME
+  experimental: {
+    caseSensitiveRoutes: true,
+  },
   async rewrites() {
     // no-rewrites comment
     return {
@@ -12,6 +15,15 @@ module.exports = {
               },
             ]
           : []),
+        {
+          source: '/to-websocket',
+          destination:
+            'http://localhost:__EXTERNAL_PORT__/_next/webpack-hmr?page=/about',
+        },
+        {
+          source: '/websocket-to-page',
+          destination: '/hello',
+        },
         {
           source: '/to-nowhere',
           destination: 'http://localhost:12233',
@@ -201,8 +213,44 @@ module.exports = {
           destination: '/blog-catchall/:post',
         },
         {
+          source: '/missing-rewrite-1',
+          missing: [
+            {
+              type: 'header',
+              key: 'x-my-header',
+              value: '(?<myHeader>.*)',
+            },
+          ],
+          destination: '/with-params',
+        },
+        {
+          source: '/missing-rewrite-2',
+          missing: [
+            {
+              type: 'query',
+              key: 'my-query',
+            },
+          ],
+          destination: '/with-params',
+        },
+        {
+          source: '/missing-rewrite-3',
+          missing: [
+            {
+              type: 'cookie',
+              key: 'loggedIn',
+              value: '(?<loggedIn>true)',
+            },
+          ],
+          destination: '/with-params?authorized=1',
+        },
+        {
           source: '/blog/about',
           destination: '/hello',
+        },
+        {
+          source: '/overridden/:path*',
+          destination: '/overridden',
         },
       ],
       beforeFiles: [
@@ -220,11 +268,54 @@ module.exports = {
           source: '/old-blog/:path*',
           destination: '/blog/:path*',
         },
+        {
+          source: '/overridden',
+          destination: 'https://example.vercel.sh',
+        },
+        {
+          source: '/nfl/:path*',
+          destination: '/_sport/nfl/:path*',
+        },
       ],
     }
   },
   async redirects() {
     return [
+      {
+        source: '/missing-redirect-1',
+        missing: [
+          {
+            type: 'header',
+            key: 'x-my-header',
+            value: '(?<myHeader>.*)',
+          },
+        ],
+        destination: '/with-params',
+        permanent: false,
+      },
+      {
+        source: '/missing-redirect-2',
+        missing: [
+          {
+            type: 'query',
+            key: 'my-query',
+          },
+        ],
+        destination: '/with-params',
+        permanent: false,
+      },
+      {
+        source: '/missing-redirect-3',
+        missing: [
+          {
+            type: 'cookie',
+            key: 'loggedIn',
+            value: '(?<loggedIn>true)',
+          },
+        ],
+        destination: '/with-params?authorized=1',
+        permanent: false,
+      },
       {
         source: '/redirect/me/to-about/:lang',
         destination: '/:lang/about',
@@ -417,6 +508,53 @@ module.exports = {
 
   async headers() {
     return [
+      {
+        source: '/missing-headers-1',
+        missing: [
+          {
+            type: 'header',
+            key: 'x-my-header',
+            value: '(?<myHeader>.*)',
+          },
+        ],
+        headers: [
+          {
+            key: 'x-new-header',
+            value: 'new-value',
+          },
+        ],
+      },
+      {
+        source: '/missing-headers-2',
+        missing: [
+          {
+            type: 'query',
+            key: 'my-query',
+          },
+        ],
+        headers: [
+          {
+            key: 'x-new-header',
+            value: 'new-value',
+          },
+        ],
+      },
+      {
+        source: '/missing-headers-3',
+        missing: [
+          {
+            type: 'cookie',
+            key: 'loggedIn',
+            value: '(?<loggedIn>true)',
+          },
+        ],
+        headers: [
+          {
+            key: 'x-new-header',
+            value: 'new-value',
+          },
+        ],
+      },
       {
         source: '/add-header',
         headers: [

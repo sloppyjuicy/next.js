@@ -1,21 +1,27 @@
 ## Example app using Google Tag Manager
 
-This example shows how to use Next.js along with Google Tag Manager. [`pages/_document.js`](pages/_document.js) is used to inject [base code](https://developers.google.com/tag-manager/quickstart). [`pages/_app.js`](pages/_app.js) is used to track route changes and send page views to Google Tag Manager.
+This example shows how to include Google Tag Manager in a Next.js application using [`@next/third-parties`](https://nextjs.org/docs/app/building-your-application/optimizing/third-party-libraries). The GTM container is instantiated in `layout.tsx` and the `sendGTMEvent` function is fired in the `EventButton` client component.
 
 ## Deploy your own
 
-Deploy the example using [Vercel](https://vercel.com?utm_source=github&utm_medium=readme&utm_campaign=next-example):
+Deploy the example using [Vercel](https://vercel.com?utm_source=github&utm_medium=readme&utm_campaign=next-example) or preview live with [StackBlitz](https://stackblitz.com/github/vercel/next.js/tree/canary/examples/with-google-tag-manager)
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/git/external?repository-url=https://github.com/vercel/next.js/tree/canary/examples/with-google-tag-manager&project-name=with-google-tag-manager&repository-name=with-google-tag-manager)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vercel/next.js/tree/canary/examples/with-google-tag-manager&project-name=with-google-tag-manager&repository-name=with-google-tag-manager)
 
 ## How to use
 
-Execute [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app) with [npm](https://docs.npmjs.com/cli/init) or [Yarn](https://yarnpkg.com/lang/en/docs/cli/create/) to bootstrap the example:
+Execute [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app) with [npm](https://docs.npmjs.com/cli/init), [Yarn](https://yarnpkg.com/lang/en/docs/cli/create/), or [pnpm](https://pnpm.io) to bootstrap the example:
 
 ```bash
 npx create-next-app --example with-google-tag-manager with-google-tag-manager-app
-# or
+```
+
+```bash
 yarn create next-app --example with-google-tag-manager with-google-tag-manager-app
+```
+
+```bash
+pnpm create next-app --example with-google-tag-manager with-google-tag-manager-app
 ```
 
 Next, copy the `.env.local.example` file in this directory to `.env.local` (which will be ignored by Git):

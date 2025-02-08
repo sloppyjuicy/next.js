@@ -1,21 +1,12 @@
-import Link from 'next/link'
+import Link from "next/link";
 
 function MyApp({ Component, pageProps }) {
   return (
     <>
       <header>
         <nav>
-          <Link href="/">
-            <a>Home</a>
-          </Link>
-          |
-          <Link href="/about">
-            <a>About</a>
-          </Link>
-          |
-          <Link href="/contact">
-            <a>Contact</a>
-          </Link>
+          <Link href="/">Home</Link>|<Link href="/about">About</Link>|
+          <Link href="/contact">Contact</Link>
         </nav>
       </header>
 
@@ -23,7 +14,7 @@ function MyApp({ Component, pageProps }) {
 
       <footer>I`m here to stay</footer>
     </>
-  )
+  );
 }
 
-export default MyApp
+export default MyApp;

@@ -1,106 +1,47 @@
 /* eslint-disable import/no-extraneous-dependencies */
-import chalk from 'chalk'
+import { yellow } from 'picocolors'
 import spawn from 'cross-spawn'
-
-interface InstallArgs {
-  /**
-   * Indicate whether to install packages using Yarn.
-   */
-  useYarn: boolean
-  /**
-   * Indicate whether there is an active Internet connection.
-   */
-  isOnline: boolean
-  /**
-   * Indicate whether the given dependencies are devDependencies.
-   */
-  devDependencies?: boolean
-}
+import type { PackageManager } from './get-pkg-manager'
 
 /**
- * Spawn a package manager installation with either Yarn or NPM.
+ * Spawn a package manager installation based on user preference.
  *
  * @returns A Promise that resolves once the installation is finished.
  */
-export function install(
-  root: string,
-  dependencies: string[] | null,
-  { useYarn, isOnline, devDependencies }: InstallArgs
+export async function install(
+  /** Indicate which package manager to use. */
+  packageManager: PackageManager,
+  /** Indicate whether there is an active Internet connection.*/
+  isOnline: boolean
 ): Promise<void> {
-  /**
-   * NPM-specific command-line flags.
-   */
-  const npmFlags: string[] = []
-  /**
-   * Yarn-specific command-line flags.
-   */
-  const yarnFlags: string[] = []
+  const args: string[] = ['install']
+  if (!isOnline) {
+    console.log(
+      yellow('You appear to be offline.\nFalling back to the local cache.')
+    )
+    args.push('--offline')
+  }
   /**
    * Return a Promise that resolves once the installation is finished.
    */
   return new Promise((resolve, reject) => {
-    let args: string[]
-    let command: string = useYarn ? 'yarnpkg' : 'npm'
-
-    if (dependencies && dependencies.length) {
-      /**
-       * If there are dependencies, run a variation of `{displayCommand} add`.
-       */
-      if (useYarn) {
-        /**
-         * Call `yarn add --exact (--offline)? (-D)? ...`.
-         */
-        args = ['add', '--exact']
-        if (!isOnline) args.push('--offline')
-        args.push('--cwd', root)
-        if (devDependencies) args.push('--dev')
-        args.push(...dependencies)
-      } else {
-        /**
-         * Call `npm install [--save|--save-dev] ...`.
-         */
-        args = ['install', '--save-exact']
-        args.push(devDependencies ? '--save-dev' : '--save')
-        args.push(...dependencies)
-      }
-    } else {
-      /**
-       * If there are no dependencies, run a variation of `{displayCommand}
-       * install`.
-       */
-      args = ['install']
-      if (useYarn) {
-        if (!isOnline) {
-          console.log(chalk.yellow('You appear to be offline.'))
-          console.log(chalk.yellow('Falling back to the local Yarn cache.'))
-          console.log()
-          args.push('--offline')
-        }
-      } else {
-        if (!isOnline) {
-          console.log(chalk.yellow('You appear to be offline.'))
-          console.log()
-        }
-      }
-    }
-    /**
-     * Add any package manager-specific flags.
-     */
-    if (useYarn) {
-      args.push(...yarnFlags)
-    } else {
-      args.push(...npmFlags)
-    }
     /**
      * Spawn the installation process.
      */
-    const child = spawn(command, args, {
+    const child = spawn(packageManager, args, {
       stdio: 'inherit',
-      env: { ...process.env, ADBLOCK: '1', DISABLE_OPENCOLLECTIVE: '1' },
+      env: {
+        ...process.env,
+        ADBLOCK: '1',
+        // we set NODE_ENV to development as pnpm skips dev
+        // dependencies when production
+        NODE_ENV: 'development',
+        DISABLE_OPENCOLLECTIVE: '1',
+      },
     })
     child.on('close', (code) => {
       if (code !== 0) {
-        reject({ command: `${command} ${args.join(' ')}` })
+        reject({ command: `${packageManager} ${args.join(' ')}` })
         return
       }
       resolve()

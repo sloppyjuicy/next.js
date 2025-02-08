@@ -1,6 +1,5 @@
 /* eslint-env jest */
 
-import fs from 'fs-extra'
 import { join } from 'path'
 import cheerio from 'cheerio'
 import {
@@ -13,7 +12,6 @@ import {
 } from 'next-test-utils'
 
 const appDir = join(__dirname, '..')
-const nextConfig = join(appDir, 'next.config.js')
 
 let appPort
 let app
@@ -33,48 +31,31 @@ const runTests = () => {
 }
 
 describe('pageProps GSSP conflict', () => {
-  describe('dev mode', () => {
-    beforeAll(async () => {
-      appPort = await findPort()
-      app = await launchApp(appDir, appPort)
-    })
-    afterAll(() => killApp(app))
+  ;(process.env.TURBOPACK_BUILD ? describe.skip : describe)(
+    'development mode',
+    () => {
+      beforeAll(async () => {
+        appPort = await findPort()
+        app = await launchApp(appDir, appPort)
+      })
+      afterAll(() => killApp(app))
 
-    runTests()
-  })
+      runTests()
+    }
+  )
+  ;(process.env.TURBOPACK_DEV ? describe.skip : describe)(
+    'production mode',
+    () => {
+      beforeAll(async () => {
+        const { code } = await nextBuild(appDir)
+        if (code !== 0) throw new Error(`build failed with code ${code}`)
 
-  describe('production mode', () => {
-    beforeAll(async () => {
-      const { code } = await nextBuild(appDir)
-      if (code !== 0) throw new Error(`build failed with code ${code}`)
+        appPort = await findPort()
+        app = await nextStart(appDir, appPort)
+      })
+      afterAll(() => killApp(app))
 
-      appPort = await findPort()
-      app = await nextStart(appDir, appPort)
-    })
-    afterAll(() => killApp(app))
-
-    runTests()
-  })
-
-  describe('serverless mode', () => {
-    beforeAll(async () => {
-      await fs.writeFile(
-        nextConfig,
-        `module.exports = {
-        target: 'experimental-serverless-trace'
-      }`
-      )
-      const { code } = await nextBuild(appDir)
-      if (code !== 0) throw new Error(`build failed with code ${code}`)
-
-      appPort = await findPort()
-      app = await nextStart(appDir, appPort)
-    })
-    afterAll(async () => {
-      await fs.remove(nextConfig)
-      await killApp(app)
-    })
-
-    runTests()
-  })
+      runTests()
+    }
+  )
 })
