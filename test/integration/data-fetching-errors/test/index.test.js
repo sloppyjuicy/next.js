@@ -7,12 +7,15 @@ import {
   launchApp,
   nextBuild,
   renderViaHTTP,
+  nextStart,
+  check,
 } from 'next-test-utils'
 import { join } from 'path'
 import {
   GSP_NO_RETURNED_VALUE,
   GSSP_NO_RETURNED_VALUE,
 } from '../../../../packages/next/dist/lib/constants'
+import { PHASE_PRODUCTION_BUILD } from '../../../../packages/next/dist/shared/lib/constants'
 
 const appDir = join(__dirname, '..')
 const indexPage = join(appDir, 'pages/index.js')
@@ -125,12 +128,55 @@ describe('GS(S)P Page Errors', () => {
     origIndexPage = await fs.readFile(indexPage, 'utf8')
   })
   afterAll(() => fs.writeFile(indexPage, origIndexPage))
+  ;(process.env.TURBOPACK_BUILD ? describe.skip : describe)(
+    'development mode',
+    () => {
+      runTests(true)
+    }
+  )
+  ;(process.env.TURBOPACK_DEV ? describe.skip : describe)(
+    'production mode',
+    () => {
+      runTests()
 
-  describe('dev mode', () => {
-    runTests(true)
-  })
+      it('Error stack printed to stderr', async () => {
+        try {
+          await fs.writeFile(
+            indexPage,
+            `export default function Page() {
+            return <div/>
+          }
+            export function getStaticProps() {
+              // Make it pass on the build phase
+              if(process.env.NEXT_PHASE === "${PHASE_PRODUCTION_BUILD}") {
+                return { props: { foo: 'bar' }, revalidate: 1 }
+              }
 
-  describe('production mode', () => {
-    runTests()
-  })
+              throw new Error("Oops")
+            }
+            `
+          )
+
+          await nextBuild(appDir)
+
+          appPort = await findPort()
+
+          let stderr = ''
+          app = await nextStart(appDir, appPort, {
+            onStderr: (msg) => {
+              stderr += msg || ''
+            },
+          })
+          await check(async () => {
+            await renderViaHTTP(appPort, '/')
+            return stderr
+          }, /error: oops/i)
+
+          expect(stderr).toContain('Error: Oops')
+        } finally {
+          await killApp(app)
+        }
+      })
+    }
+  )
 })

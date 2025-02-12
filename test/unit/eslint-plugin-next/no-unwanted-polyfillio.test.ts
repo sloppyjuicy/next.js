@@ -1,18 +1,10 @@
-import rule from '@next/eslint-plugin-next/lib/rules/no-unwanted-polyfillio'
-import { RuleTester } from 'eslint'
-;(RuleTester as any).setDefaultConfig({
-  parserOptions: {
-    ecmaVersion: 2018,
-    sourceType: 'module',
-    ecmaFeatures: {
-      modules: true,
-      jsx: true,
-    },
-  },
-})
-const ruleTester = new RuleTester()
+import { RuleTester as ESLintTesterV8 } from 'eslint-v8'
+import { RuleTester as ESLintTesterV9 } from 'eslint'
+import { rules } from '@next/eslint-plugin-next'
 
-ruleTester.run('unwanted-polyfillsio', rule, {
+const NextESLintRule = rules['no-unwanted-polyfillio']
+
+const tests = {
   valid: [
     `import {Head} from 'next/document';
 
@@ -48,6 +40,16 @@ ruleTester.run('unwanted-polyfillsio', rule, {
             </div>
           );
     }`,
+    `import Script from 'next/script';
+
+      export function MyApp({ Component, pageProps }) {
+          return (
+            <div>
+              <Component {...pageProps} />
+              <Script src='https://polyfill-fastly.io/v3/polyfill.min.js?features=IntersectionObserver' />
+            </div>
+          );
+    }`,
   ],
 
   invalid: [
@@ -67,7 +69,7 @@ ruleTester.run('unwanted-polyfillsio', rule, {
       errors: [
         {
           message:
-            'No duplicate polyfills from Polyfill.io are allowed. WeakSet, Promise, Promise.prototype.finally, es2015, es5, es6 are already shipped with Next.js. See: https://nextjs.org/docs/messages/no-unwanted-polyfillio.',
+            'No duplicate polyfills from Polyfill.io are allowed. WeakSet, Promise, Promise.prototype.finally, es2015, es5, es6 are already shipped with Next.js. See: https://nextjs.org/docs/messages/no-unwanted-polyfillio',
           type: 'JSXOpeningElement',
         },
       ],
@@ -87,7 +89,7 @@ ruleTester.run('unwanted-polyfillsio', rule, {
       errors: [
         {
           message:
-            'No duplicate polyfills from Polyfill.io are allowed. Array.prototype.copyWithin is already shipped with Next.js. See: https://nextjs.org/docs/messages/no-unwanted-polyfillio.',
+            'No duplicate polyfills from Polyfill.io are allowed. Array.prototype.copyWithin is already shipped with Next.js. See: https://nextjs.org/docs/messages/no-unwanted-polyfillio',
           type: 'JSXOpeningElement',
         },
       ],
@@ -106,10 +108,56 @@ ruleTester.run('unwanted-polyfillsio', rule, {
       errors: [
         {
           message:
-            'No duplicate polyfills from Polyfill.io are allowed. Array.prototype.copyWithin is already shipped with Next.js. See: https://nextjs.org/docs/messages/no-unwanted-polyfillio.',
+            'No duplicate polyfills from Polyfill.io are allowed. Array.prototype.copyWithin is already shipped with Next.js. See: https://nextjs.org/docs/messages/no-unwanted-polyfillio',
           type: 'JSXOpeningElement',
         },
       ],
     },
+    {
+      code: `import {Head} from 'next/document';
+
+        export class ES2019Features extends Head {
+          render() {
+            return (
+              <div>
+                <h1>Hello title</h1>
+                <script src='https://polyfill.io/v3/polyfill.min.js?features=Object.fromEntries'></script>
+              </div>
+            );
+          }
+      }`,
+      errors: [
+        {
+          message:
+            'No duplicate polyfills from Polyfill.io are allowed. Object.fromEntries is already shipped with Next.js. See: https://nextjs.org/docs/messages/no-unwanted-polyfillio',
+        },
+      ],
+    },
   ],
+}
+
+describe('no-unwanted-polyfillio', () => {
+  new ESLintTesterV8({
+    parserOptions: {
+      ecmaVersion: 2018,
+      sourceType: 'module',
+      ecmaFeatures: {
+        modules: true,
+        jsx: true,
+      },
+    },
+  }).run('eslint-v8', NextESLintRule, tests)
+
+  new ESLintTesterV9({
+    languageOptions: {
+      ecmaVersion: 2018,
+      sourceType: 'module',
+      parserOptions: {
+        ecmaFeatures: {
+          modules: true,
+          jsx: true,
+        },
+      },
+    },
+  }).run('eslint-v9', NextESLintRule, tests)
 })
