@@ -6,18 +6,24 @@ This example relies on [Prisma + Nexus](https://github.com/prisma-labs/nextjs-gr
 
 ## Deploy your own
 
-Deploy the example using [Vercel](https://vercel.com?utm_source=github&utm_medium=readme&utm_campaign=next-example):
+Deploy the example using [Vercel](https://vercel.com?utm_source=github&utm_medium=readme&utm_campaign=next-example) or preview live with [StackBlitz](https://stackblitz.com/github/vercel/next.js/tree/canary/examples/with-relay-modern)
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/git/external?repository-url=https://github.com/vercel/next.js/tree/canary/examples/with-relay-modern&project-name=with-relay-modern&repository-name=with-relay-modern)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vercel/next.js/tree/canary/examples/with-relay-modern&project-name=with-relay-modern&repository-name=with-relay-modern)
 
 ## How to use
 
-Execute [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app) with [npm](https://docs.npmjs.com/cli/init) or [Yarn](https://yarnpkg.com/lang/en/docs/cli/create/) to bootstrap the example:
+Execute [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app) with [npm](https://docs.npmjs.com/cli/init), [Yarn](https://yarnpkg.com/lang/en/docs/cli/create/), or [pnpm](https://pnpm.io) to bootstrap the example:
 
 ```bash
 npx create-next-app --example with-relay-modern with-relay-modern-app
-# or
+```
+
+```bash
 yarn create next-app --example with-relay-modern with-relay-modern-app
+```
+
+```bash
+pnpm create next-app --example with-relay-modern with-relay-modern-app
 ```
 
 Download schema introspection data from configured Relay endpoint
@@ -26,6 +32,8 @@ Download schema introspection data from configured Relay endpoint
 npm run schema
 # or
 yarn schema
+# or
+pnpm schema
 ```
 
 Run Relay ahead-of-time compilation (should be re-run after any edits to components that query data with Relay)
@@ -34,6 +42,8 @@ Run Relay ahead-of-time compilation (should be re-run after any edits to compone
 npm run relay
 # or
 yarn relay
+# or
+pnpm relay
 ```
 
 Run the project
@@ -42,6 +52,8 @@ Run the project
 npm run dev
 # or
 yarn dev
+# or
+pnpm dev
 ```
 
 Deploy it to the cloud with [Vercel](https://vercel.com/new?utm_source=github&utm_medium=readme&utm_campaign=next-example) ([Documentation](https://nextjs.org/docs/deployment)).

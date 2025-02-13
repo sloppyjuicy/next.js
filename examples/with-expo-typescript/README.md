@@ -22,18 +22,24 @@ This is a starter project for creating universal React apps with Next.js, Expo, 
 
 Deploy the example using [Vercel](https://vercel.com?utm_source=github&utm_medium=readme&utm_campaign=next-example) (web only):
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/git/external?repository-url=https://github.com/vercel/next.js/tree/canary/examples/with-expo&project-name=with-expo&repository-name=with-expo)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vercel/next.js/tree/canary/examples/with-expo&project-name=with-expo&repository-name=with-expo)
 
 Deploy the native app to the App store and Play store using [Expo deployment](https://docs.expo.io/distribution/app-stores/).
 
 ## How to use
 
-Execute [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app) with [npm](https://docs.npmjs.com/cli/init) or [Yarn](https://yarnpkg.com/lang/en/docs/cli/create/) to bootstrap the example:
+Execute [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app) with [npm](https://docs.npmjs.com/cli/init), [Yarn](https://yarnpkg.com/lang/en/docs/cli/create/), or [pnpm](https://pnpm.io) to bootstrap the example:
 
 ```bash
 npx create-next-app --example with-expo-typescript with-expo-typescript-app
-# or
+```
+
+```bash
 yarn create next-app --example with-expo-typescript with-expo-typescript-app
+```
+
+```bash
+pnpm create next-app --example with-expo-typescript with-expo-typescript-app
 ```
 
 ### Running web
@@ -65,14 +71,14 @@ yarn add -D next-compose-plugins next-transpile-modules
 - Modify the Next.js config `next.config.js`:
 
 ```js
-const { withExpo } = require('@expo/next-adapter')
-const withPlugins = require('next-compose-plugins')
-const withTM = require('next-transpile-modules')([
+const { withExpo } = require("@expo/next-adapter");
+const withPlugins = require("next-compose-plugins");
+const withTM = require("next-transpile-modules")([
   // Add the name of your package here...
-  '@ui-kitten/components',
-])
+  "@ui-kitten/components",
+]);
 
 module.exports = withPlugins([withTM, [withExpo, { projectRoot: __dirname }]], {
   // ...
-})
+});
 ```

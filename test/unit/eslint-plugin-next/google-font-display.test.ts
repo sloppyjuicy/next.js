@@ -1,18 +1,10 @@
-import rule from '@next/eslint-plugin-next/lib/rules/google-font-display'
-import { RuleTester } from 'eslint'
-;(RuleTester as any).setDefaultConfig({
-  parserOptions: {
-    ecmaVersion: 2020,
-    sourceType: 'module',
-    ecmaFeatures: {
-      modules: true,
-      jsx: true,
-    },
-  },
-})
-const ruleTester = new RuleTester()
+import { RuleTester as ESLintTesterV8 } from 'eslint-v8'
+import { RuleTester as ESLintTesterV9 } from 'eslint'
+import { rules } from '@next/eslint-plugin-next'
 
-ruleTester.run('google-font-display', rule, {
+const NextESLintRule = rules['google-font-display']
+
+const tests = {
   valid: [
     `import Head from "next/head";
 
@@ -53,7 +45,28 @@ ruleTester.run('google-font-display', rule, {
         );
       }
      }
-    
+
+     export default MyDocument;
+    `,
+
+    `import Document, { Html, Head } from "next/document";
+
+     class MyDocument extends Document {
+      render() {
+        return (
+          <Html>
+            <Head>
+              <link
+                href="https://fonts.googleapis.com/css?family=Krona+One&display=swap"
+                rel="stylesheet"
+                crossOrigin=""
+              />
+            </Head>
+          </Html>
+        );
+      }
+     }
+
      export default MyDocument;
     `,
   ],
@@ -76,7 +89,7 @@ ruleTester.run('google-font-display', rule, {
       errors: [
         {
           message:
-            'Display parameter is missing. See https://nextjs.org/docs/messages/google-font-display.',
+            'A font-display parameter is missing (adding `&display=optional` is recommended). See: https://nextjs.org/docs/messages/google-font-display',
           type: 'JSXOpeningElement',
         },
       ],
@@ -98,7 +111,7 @@ ruleTester.run('google-font-display', rule, {
       errors: [
         {
           message:
-            'Block behavior is not recommended. See https://nextjs.org/docs/messages/google-font-display.',
+            'Block is not recommended. See: https://nextjs.org/docs/messages/google-font-display',
           type: 'JSXOpeningElement',
         },
       ],
@@ -120,7 +133,7 @@ ruleTester.run('google-font-display', rule, {
       errors: [
         {
           message:
-            'Auto behavior is not recommended. See https://nextjs.org/docs/messages/google-font-display.',
+            'Auto is not recommended. See: https://nextjs.org/docs/messages/google-font-display',
           type: 'JSXOpeningElement',
         },
       ],
@@ -142,10 +155,36 @@ ruleTester.run('google-font-display', rule, {
       errors: [
         {
           message:
-            'Fallback behavior is not recommended. See https://nextjs.org/docs/messages/google-font-display.',
+            'Fallback is not recommended. See: https://nextjs.org/docs/messages/google-font-display',
           type: 'JSXOpeningElement',
         },
       ],
     },
   ],
+}
+
+describe('google-font-display', () => {
+  new ESLintTesterV8({
+    parserOptions: {
+      ecmaVersion: 2020,
+      sourceType: 'module',
+      ecmaFeatures: {
+        modules: true,
+        jsx: true,
+      },
+    },
+  }).run('eslint-v8', NextESLintRule, tests)
+
+  new ESLintTesterV9({
+    languageOptions: {
+      ecmaVersion: 2020,
+      sourceType: 'module',
+      parserOptions: {
+        ecmaFeatures: {
+          modules: true,
+          jsx: true,
+        },
+      },
+    },
+  }).run('eslint-v9', NextESLintRule, tests)
 })

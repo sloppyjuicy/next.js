@@ -1,4 +1,4 @@
-import Head from 'next/head'
+import Head from "next/head";
 import {
   MDBBtn,
   MDBCard,
@@ -9,13 +9,13 @@ import {
   MDBContainer,
   MDBFooter,
   MDBRow,
-} from 'mdbreact'
+} from "mdbreact";
 
 export default function Home() {
   return (
     <>
       <Head>
-        <title>NextJS with Material Design Bootstrap for React</title>
+        <title>Next.js with Material Design Bootstrap for React</title>
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <MDBContainer className="text-center mt-5">
@@ -75,7 +75,7 @@ export default function Home() {
                   color="primary"
                   size="sm"
                   className="text-capitalize"
-                  href="https://github.com/vercel/next.js/tree/master/examples"
+                  href="https://github.com/vercel/next.js/tree/canary/examples"
                 >
                   More &rarr;
                 </MDBBtn>
@@ -114,5 +114,5 @@ export default function Home() {
         </MDBFooter>
       </MDBContainer>
     </>
-  )
+  );
 }

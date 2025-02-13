@@ -39,6 +39,8 @@ const runTests = () => {
       expect(res.status).toBe(dest ? 307 : 404)
 
       if (dest) {
+        const text = await res.text()
+        expect(text).toEqual(dest)
         if (dest.startsWith('/')) {
           const parsed = url.parse(res.headers.get('location'))
           expect(parsed.pathname).toBe(dest)
@@ -165,23 +167,27 @@ describe('Custom routes i18n', () => {
     server.close()
     nextConfig.restore()
   })
-
-  describe('dev mode', () => {
-    beforeAll(async () => {
-      appPort = await findPort()
-      app = await launchApp(appDir, appPort)
-    })
-    afterAll(() => killApp(app))
-    runTests(true)
-  })
-
-  describe('production mode', () => {
-    beforeAll(async () => {
-      await nextBuild(appDir)
-      appPort = await findPort()
-      app = await nextStart(appDir, appPort)
-    })
-    afterAll(() => killApp(app))
-    runTests()
-  })
+  ;(process.env.TURBOPACK_BUILD ? describe.skip : describe)(
+    'development mode',
+    () => {
+      beforeAll(async () => {
+        appPort = await findPort()
+        app = await launchApp(appDir, appPort)
+      })
+      afterAll(() => killApp(app))
+      runTests(true)
+    }
+  )
+  ;(process.env.TURBOPACK_DEV ? describe.skip : describe)(
+    'production mode',
+    () => {
+      beforeAll(async () => {
+        await nextBuild(appDir)
+        appPort = await findPort()
+        app = await nextStart(appDir, appPort)
+      })
+      afterAll(() => killApp(app))
+      runTests()
+    }
+  )
 })

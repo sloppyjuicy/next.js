@@ -16,6 +16,16 @@
     "hook",
     "hooks",
     "host-hostess",
-    "invalid"
+    "invalid",
+    "remains",
+    "special",
+    "white",
+    "deno",
+    "digitalocean",
+    "flightcontrol",
+    "fly.io",
+    "github",
+    "railway",
+    "sst"
   ]
 }

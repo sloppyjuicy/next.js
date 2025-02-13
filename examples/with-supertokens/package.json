@@ -3,16 +3,25 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "lint": "next lint"
   },
   "dependencies": {
+    "jsonwebtoken": "^9.0.2",
+    "jwks-rsa": "^3.1.0",
     "next": "latest",
-    "react": "17.0.1",
-    "react-dom": "17.0.1",
-    "supertokens-auth-react": "^0.17.0",
-    "supertokens-node": "^8.1.0"
+    "react": "^18",
+    "react-dom": "^18",
+    "supertokens-auth-react": "latest",
+    "supertokens-node": "latest"
   },
   "devDependencies": {
-    "eslint-config-next": "11.0.1"
+    "@types/cookie": "^0.5.2",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "eslint": "^9",
+    "eslint-config-next": "13.5.4",
+    "typescript": "^5"
   }
 }

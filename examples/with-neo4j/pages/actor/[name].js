@@ -1,18 +1,19 @@
-import Head from 'next/head'
-import Link from 'next/link'
-import { useRouter } from 'next/router'
-import useSWR from 'swr'
-import fetcher from '../../lib/fetcher'
-import Header from '../../components/header'
-import Footer from '../../components/footer'
+import Head from "next/head";
+import Link from "next/link";
+import { useRouter } from "next/router";
+import useSWR from "swr";
+import fetcher from "../../lib/fetcher";
+import Header from "../../components/header";
+import Footer from "../../components/footer";
 
 export default function Actor() {
-  const router = useRouter()
-  const { name } = router.query
-  const { data, error } = useSWR(`/api/actors/${name}`, fetcher)
+  const router = useRouter();
+  const { name } = router.query;
+  const { data, error, isLoading } = useSWR(`/api/actors/${name}`, fetcher);
 
-  if (error) return <div>failed to load</div>
-  if (!data) return <div>loading...</div>
+  if (error) return <div>failed to load</div>;
+  if (isLoading) return <div>loading...</div>;
+  if (!data) return null;
 
   return (
     <div className="container">
@@ -41,6 +42,7 @@ export default function Actor() {
                   as={{
                     pathname: `/movie/${encodeURIComponent(movie)}`,
                   }}
+                  legacyBehavior
                 >
                   <a>{movie}</a>
                 </Link>
@@ -50,7 +52,7 @@ export default function Actor() {
         </div>
 
         <div className="back">
-          <Link href="/">
+          <Link href="/" legacyBehavior>
             <a>🔙 Go Back</a>
           </Link>
         </div>
@@ -95,5 +97,5 @@ export default function Actor() {
         `}
       </style>
     </div>
-  )
+  );
 }

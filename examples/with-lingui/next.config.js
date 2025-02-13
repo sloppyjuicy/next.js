@@ -1,5 +1,6 @@
-const { locales, sourceLocale } = require('./lingui.config.js')
+const { locales, sourceLocale } = require("./lingui.config.js");
 
+/** @type {import('next').NextConfig} */
 module.exports = {
   i18n: {
     locales,
@@ -8,9 +9,9 @@ module.exports = {
   webpack: (config) => {
     config.module.rules.push({
       test: /\.po/,
-      use: ['@lingui/loader'],
-    })
+      use: ["@lingui/loader"],
+    });
 
-    return config
+    return config;
   },
-}
+};

@@ -1,18 +1,10 @@
-import rule from '@next/eslint-plugin-next/lib/rules/no-head-import-in-document'
-import { RuleTester } from 'eslint'
-;(RuleTester as any).setDefaultConfig({
-  parserOptions: {
-    ecmaVersion: 2018,
-    sourceType: 'module',
-    ecmaFeatures: {
-      modules: true,
-      jsx: true,
-    },
-  },
-})
-const ruleTester = new RuleTester()
+import { RuleTester as ESLintTesterV8 } from 'eslint-v8'
+import { RuleTester as ESLintTesterV9 } from 'eslint'
+import { rules } from '@next/eslint-plugin-next'
 
-ruleTester.run('no-head-import-in-document', rule, {
+const NextESLintRule = rules['no-head-import-in-document']
+
+const tests = {
   valid: [
     {
       code: `import Document, { Html, Head, Main, NextScript } from 'next/document'
@@ -21,7 +13,7 @@ ruleTester.run('no-head-import-in-document', rule, {
         static async getInitialProps(ctx) {
           //...
         }
-      
+
         render() {
           return (
             <Html>
@@ -31,7 +23,7 @@ ruleTester.run('no-head-import-in-document', rule, {
           )
         }
       }
-      
+
       export default MyDocument
     `,
       filename: 'pages/_document.tsx',
@@ -46,7 +38,7 @@ ruleTester.run('no-head-import-in-document', rule, {
             <meta name="viewport" content="initial-scale=1.0, width=device-width" />
           </Head>
         );
-      }      
+      }
     `,
       filename: 'pages/index.tsx',
     },
@@ -56,7 +48,7 @@ ruleTester.run('no-head-import-in-document', rule, {
       code: `
       import Document, { Html, Main, NextScript } from 'next/document'
       import Head from 'next/head'
-      
+
       class MyDocument extends Document {
         render() {
           return (
@@ -70,14 +62,14 @@ ruleTester.run('no-head-import-in-document', rule, {
           )
         }
       }
-      
+
       export default MyDocument
       `,
       filename: 'pages/_document.js',
       errors: [
         {
           message:
-            'next/head should not be imported in pages/_document.js. Import Head from next/document instead. See https://nextjs.org/docs/messages/no-head-import-in-document.',
+            '`next/head` should not be imported in `pages/_document.js`. Use `<Head />` from `next/document` instead. See: https://nextjs.org/docs/messages/no-head-import-in-document',
           type: 'ImportDeclaration',
         },
       ],
@@ -86,7 +78,7 @@ ruleTester.run('no-head-import-in-document', rule, {
       code: `
       import Document, { Html, Main, NextScript } from 'next/document'
       import Head from 'next/head'
-      
+
       class MyDocument extends Document {
         render() {
           return (
@@ -100,14 +92,14 @@ ruleTester.run('no-head-import-in-document', rule, {
           )
         }
       }
-      
+
       export default MyDocument
       `,
       filename: 'pages/_document.page.tsx',
       errors: [
         {
           message:
-            'next/head should not be imported in pages/_document.page.tsx. Import Head from next/document instead. See https://nextjs.org/docs/messages/no-head-import-in-document.',
+            '`next/head` should not be imported in `pages/_document.page.tsx`. Use `<Head />` from `next/document` instead. See: https://nextjs.org/docs/messages/no-head-import-in-document',
           type: 'ImportDeclaration',
         },
       ],
@@ -116,7 +108,7 @@ ruleTester.run('no-head-import-in-document', rule, {
       code: `
       import Document, { Html, Main, NextScript } from 'next/document'
       import Head from 'next/head'
-      
+
       class MyDocument extends Document {
         render() {
           return (
@@ -130,14 +122,14 @@ ruleTester.run('no-head-import-in-document', rule, {
           )
         }
       }
-      
+
       export default MyDocument
       `,
       filename: 'pages/_document/index.js',
       errors: [
         {
           message:
-            'next/head should not be imported in pages/_document/index.js. Import Head from next/document instead. See https://nextjs.org/docs/messages/no-head-import-in-document.',
+            '`next/head` should not be imported in `pages/_document/index.js`. Use `<Head />` from `next/document` instead. See: https://nextjs.org/docs/messages/no-head-import-in-document',
           type: 'ImportDeclaration',
         },
       ],
@@ -146,7 +138,7 @@ ruleTester.run('no-head-import-in-document', rule, {
       code: `
       import Document, { Html, Main, NextScript } from 'next/document'
       import Head from 'next/head'
-      
+
       class MyDocument extends Document {
         render() {
           return (
@@ -160,17 +152,43 @@ ruleTester.run('no-head-import-in-document', rule, {
           )
         }
       }
-      
+
       export default MyDocument
       `,
       filename: 'pages/_document/index.tsx',
       errors: [
         {
           message:
-            'next/head should not be imported in pages/_document/index.tsx. Import Head from next/document instead. See https://nextjs.org/docs/messages/no-head-import-in-document.',
+            '`next/head` should not be imported in `pages/_document/index.tsx`. Use `<Head />` from `next/document` instead. See: https://nextjs.org/docs/messages/no-head-import-in-document',
           type: 'ImportDeclaration',
         },
       ],
     },
   ],
+}
+
+describe('no-head-import-in-document', () => {
+  new ESLintTesterV8({
+    parserOptions: {
+      ecmaVersion: 2018,
+      sourceType: 'module',
+      ecmaFeatures: {
+        modules: true,
+        jsx: true,
+      },
+    },
+  }).run('eslint-v8', NextESLintRule, tests)
+
+  new ESLintTesterV9({
+    languageOptions: {
+      ecmaVersion: 2018,
+      sourceType: 'module',
+      parserOptions: {
+        ecmaFeatures: {
+          modules: true,
+          jsx: true,
+        },
+      },
+    },
+  }).run('eslint-v9', NextESLintRule, tests)
 })

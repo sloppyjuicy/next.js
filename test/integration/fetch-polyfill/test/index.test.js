@@ -1,6 +1,5 @@
 /* eslint-env jest */
 
-import fs from 'fs-extra'
 import { join } from 'path'
 import {
   killApp,
@@ -12,11 +11,9 @@ import {
   nextBuild,
   nextStart,
 } from 'next-test-utils'
-import clone from 'clone'
 import cheerio from 'cheerio'
 
 const appDir = join(__dirname, '../')
-const nextConfig = join(appDir, 'next.config.js')
 let appPort
 let app
 let apiServerPort
@@ -26,32 +23,12 @@ const startApiServer = async (optEnv = {}, opts) => {
   const scriptPath = join(appDir, 'api-server.js')
   apiServerPort = await findPort()
   const env = Object.assign(
-    {},
-    clone(process.env),
+    { ...process.env },
     { PORT: `${apiServerPort}` },
     optEnv
   )
 
   apiServer = await initNextServerScript(
-    scriptPath,
-    /ready on/i,
-    env,
-    /ReferenceError: options is not defined/,
-    opts
-  )
-}
-
-const startServerlessServer = async (optEnv = {}, opts) => {
-  const scriptPath = join(appDir, 'serverless-server.js')
-  appPort = await findPort()
-  const env = Object.assign(
-    {},
-    clone(process.env),
-    { PORT: `${appPort}` },
-    optEnv
-  )
-
-  return await initNextServerScript(
     scriptPath,
     /ready on/i,
     env,
@@ -93,64 +70,45 @@ function runTests() {
 }
 
 describe('Fetch polyfill', () => {
-  describe('dev support', () => {
-    beforeAll(async () => {
-      appPort = await findPort()
-      await startApiServer()
-      app = await launchApp(appDir, appPort, {
-        env: {
-          NEXT_PUBLIC_API_PORT: apiServerPort,
-        },
+  ;(process.env.TURBOPACK_BUILD ? describe.skip : describe)(
+    'development mode',
+    () => {
+      beforeAll(async () => {
+        appPort = await findPort()
+        await startApiServer()
+        app = await launchApp(appDir, appPort, {
+          env: {
+            NEXT_PUBLIC_API_PORT: apiServerPort,
+          },
+        })
       })
-    })
-    afterAll(async () => {
-      await killApp(app)
-      await killApp(apiServer)
-    })
-
-    runTests()
-  })
-
-  describe('Server support', () => {
-    beforeAll(async () => {
-      await startApiServer()
-      await nextBuild(appDir, [], {
-        env: {
-          NEXT_PUBLIC_API_PORT: apiServerPort,
-        },
+      afterAll(async () => {
+        await killApp(app)
+        await killApp(apiServer)
       })
-      appPort = await findPort()
-      app = await nextStart(appDir, appPort)
-    })
-    afterAll(async () => {
-      await killApp(app)
-      await killApp(apiServer)
-    })
 
-    runTests()
-  })
-
-  describe('Serverless support', () => {
-    beforeAll(async () => {
-      await fs.writeFile(
-        nextConfig,
-        `module.exports = { target: 'serverless' }`
-      )
-      await startApiServer()
-      await nextBuild(appDir, [], {
-        env: {
-          NEXT_PUBLIC_API_PORT: apiServerPort,
-        },
+      runTests()
+    }
+  )
+  ;(process.env.TURBOPACK_DEV ? describe.skip : describe)(
+    'production mode',
+    () => {
+      beforeAll(async () => {
+        await startApiServer()
+        await nextBuild(appDir, [], {
+          env: {
+            NEXT_PUBLIC_API_PORT: apiServerPort,
+          },
+        })
+        appPort = await findPort()
+        app = await nextStart(appDir, appPort)
       })
-      appPort = await findPort()
-      app = await startServerlessServer()
-    })
-    afterAll(async () => {
-      await killApp(app)
-      await fs.remove(nextConfig)
-      await killApp(apiServer)
-    })
+      afterAll(async () => {
+        await killApp(app)
+        await killApp(apiServer)
+      })
 
-    runTests()
-  })
+      runTests()
+    }
+  )
 })

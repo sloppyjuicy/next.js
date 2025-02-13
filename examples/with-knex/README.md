@@ -4,18 +4,24 @@
 
 ## Deploy your own
 
-Once you have access to the environment variables you'll need, deploy the example using [Vercel](https://vercel.com?utm_source=github&utm_medium=readme&utm_campaign=next-example):
+Once you have access to the environment variables you'll need, deploy the example using [Vercel](https://vercel.com?utm_source=github&utm_medium=readme&utm_campaign=next-example) or preview live with [StackBlitz](https://stackblitz.com/github/vercel/next.js/tree/canary/examples/with-knex)
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/git/external?repository-url=https://github.com/vercel/next.js/tree/canary/examples/with-knex&project-name=with-knex&repository-name=with-knex&env=PG_URI&envDescription=Required%20to%20connect%20the%20app%20with%20Postgres)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vercel/next.js/tree/canary/examples/with-knex&project-name=with-knex&repository-name=with-knex&env=PG_URI&envDescription=Required%20to%20connect%20the%20app%20with%20Postgres)
 
 ## How to use
 
-Execute [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app) with [npm](https://docs.npmjs.com/cli/init) or [Yarn](https://yarnpkg.com/lang/en/docs/cli/create/) to bootstrap the example:
+Execute [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app) with [npm](https://docs.npmjs.com/cli/init), [Yarn](https://yarnpkg.com/lang/en/docs/cli/create/), or [pnpm](https://pnpm.io) to bootstrap the example:
 
 ```bash
 npx create-next-app --example with-knex with-knex-app
-# or
+```
+
+```bash
 yarn create next-app --example with-knex with-knex-app
+```
+
+```bash
+pnpm create next-app --example with-knex with-knex-app
 ```
 
 ## Configuration
@@ -26,6 +32,8 @@ yarn create next-app --example with-knex with-knex-app
 npm install
 # or
 yarn
+# or
+pnpm install
 ```
 
 ### Set up a Postgres database
@@ -50,6 +58,8 @@ You can create, apply and rollback migrations using the scripts in `package.json
 npm run migrate:latest
 # or
 yarn migrate:latest
+# or
+pnpm migrate:latest
 ```
 
 ### Start Next.js in development mode
@@ -58,6 +68,8 @@ yarn migrate:latest
 npm run dev
 # or
 yarn dev
+# or
+pnpm dev
 ```
 
 Your app should now be up and running on [http://localhost:3000](http://localhost:3000)! If it doesn't work, post on [GitHub discussions](https://github.com/vercel/next.js/discussions).
@@ -78,4 +90,4 @@ To deploy your local project to Vercel, push it to GitHub/GitLab/Bitbucket and [
 
 Alternatively, you can deploy using our template by clicking on the Deploy button below.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/git/external?repository-url=https://github.com/vercel/next.js/tree/canary/examples/with-knex&project-name=with-knex&repository-name=with-knex&env=PG_URI&envDescription=Required%20to%20connect%20the%20app%20with%20Knex)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vercel/next.js/tree/canary/examples/with-knex&project-name=with-knex&repository-name=with-knex&env=PG_URI&envDescription=Required%20to%20connect%20the%20app%20with%20Knex)

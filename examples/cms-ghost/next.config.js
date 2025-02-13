@@ -1,5 +1,13 @@
+/** @type {import('next').NextConfig} */
 module.exports = {
   images: {
-    domains: ['static.gotsby.org'],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "static.ghost.org",
+        port: "",
+        pathname: "/my-account/**",
+      },
+    ],
   },
-}
+};
